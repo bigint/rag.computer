@@ -34,7 +34,7 @@ async def load_context(
         session_id,
         user_id=uuid.UUID(user["id"]),
     )
-    if upload_session.status in TERMINAL_SESSION_STATUSES:
+    if upload_session.closed_at is not None or upload_session.status in TERMINAL_SESSION_STATUSES:
         raise HTTPException(status_code=409, detail="Upload session is closed")
 
     item_key = client_item_id or str(uuid7())

@@ -108,10 +108,13 @@ def session_status_value(upload_session: UploadSession, counts: dict[str, int]) 
     if upload_session.status == "canceled":
         return "canceled"
     active = counts["queued_files"] + counts["processing_files"]
-    if counts["uploaded_files"] < upload_session.total_files:
+    missing_files = counts["uploaded_files"] < upload_session.total_files
+    if missing_files and upload_session.closed_at is None:
         return "uploading" if counts["uploaded_files"] else "preparing"
     if active:
         return "ingesting"
+    if missing_files:
+        return "failed"
     if not counts["completed_files"] and (counts["failed_files"] or counts["canceled_files"]):
         return "failed"
     return "complete"
@@ -129,7 +132,7 @@ async def upload_session_response(
     active = counts["queued_files"] + counts["processing_files"]
     if persist_counts:
         for item, document_status, _error in rows:
-            if deleted_document_item(item, document_status):
+            if item.status != "failed" and deleted_document_item(item, document_status):
                 item.status = "canceled"
                 item.error_message = item.error_message or "Document deleted"
         upload_session.status = status

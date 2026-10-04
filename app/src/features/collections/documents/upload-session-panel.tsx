@@ -34,6 +34,7 @@ const sessionProgress = (session: UploadSession) => {
     session.completed_files +
     session.failed_files +
     session.canceled_files +
+    (session.closed_at ? Math.max(0, session.total_files - session.uploaded_files) : 0) +
     session.processing_files * 0.6 +
     session.queued_files * 0.25;
   return Math.round(Math.max(0, Math.min(1, weighted / session.total_files)) * 100);
@@ -59,11 +60,12 @@ export const UploadSessionPanel = ({
   const active = session.recent_items.find(
     (item) => item.status === "queued" || item.status === "ingesting",
   );
-  const failedItems = session.recent_items.filter((item) => item.status === "failed");
-  const statusLabel =
-    session.status === "complete" && session.failed_files
-      ? "finished with failures"
-      : session.status;
+  const rejectedItems = session.recent_items.filter(
+    (item) => item.status === "failed" || item.status === "canceled",
+  );
+  const completedWithIssues =
+    session.status === "complete" && session.failed_files + session.canceled_files > 0;
+  const statusLabel = completedWithIssues ? "finished with issues" : session.status;
 
   return (
     <Card className="overflow-hidden rounded-xl">
@@ -72,7 +74,7 @@ export const UploadSessionPanel = ({
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-semibold">Upload session</span>
-              <Badge dot variant={sessionVariant(session.status)}>
+              <Badge dot variant={completedWithIssues ? "warning" : sessionVariant(session.status)}>
                 {statusLabel}
               </Badge>
             </div>
@@ -114,7 +116,11 @@ export const UploadSessionPanel = ({
             label="Ingesting"
             value={session.processing_files + session.queued_files}
           />
-          <SessionMetric label="Uploading" value={remaining} />
+          <SessionMetric
+            label={session.closed_at ? "Not received" : "Uploading"}
+            value={remaining}
+            variant={session.closed_at && remaining ? "error" : "neutral"}
+          />
           <SessionMetric
             icon={<CircleAlert className="size-3.5" />}
             label="Failed"
@@ -142,11 +148,20 @@ export const UploadSessionPanel = ({
           </div>
         )}
 
-        {failedItems.length > 0 && (
+        {session.closed_at && remaining > 0 && (
+          <p className="text-sm text-destructive">
+            {remaining} file{remaining === 1 ? " was" : "s were"} not received before the upload
+            closed. Select those files again to retry.
+          </p>
+        )}
+
+        {rejectedItems.length > 0 && (
           <div className="flex flex-col gap-1 border-border border-t pt-3">
-            {failedItems.slice(0, 2).map((item) => (
-              <div key={item.document_id} className="flex min-w-0 items-center gap-2 text-xs">
-                <Badge variant="error">failed</Badge>
+            {rejectedItems.slice(0, 2).map((item) => (
+              <div key={item.id} className="flex min-w-0 items-center gap-2 text-xs">
+                <Badge variant={item.status === "failed" ? "error" : "warning"}>
+                  {item.status}
+                </Badge>
                 <span className="truncate font-medium">{item.filename}</span>
                 <span className="truncate text-destructive">
                   {item.error_message ?? "Upload failed"}

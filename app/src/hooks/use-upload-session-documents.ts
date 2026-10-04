@@ -1,3 +1,4 @@
+import { APIError } from "@bigrag/client/browser";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { toast } from "sonner";
@@ -67,19 +68,41 @@ export const useUploadSessionDocuments = (
       signal.throwIfAborted();
       options?.onSessionStart?.(session);
       const errors: { filename: string; error: string }[] = [];
+      const sessionPath = `v1/collections/${encodeURIComponent(collection)}/upload-sessions/${session.id}`;
+      let canceledSession: UploadSession | null = null;
+      const cancellationFromError = async (error: unknown) => {
+        if (!(error instanceof APIError && error.status === 409)) return null;
+        const current = await apiClient.get<UploadSession>(sessionPath, { signal });
+        signal.throwIfAborted();
+        return current.status === "canceled" ? current : null;
+      };
       await runWithConcurrency(files, uploadConcurrency, async (file, index) => {
         signal.throwIfAborted();
+        if (canceledSession) return;
         const form = new FormData();
         form.append("client_item_id", uploadSessionClientId(file, index));
         form.append("file", file, uploadSessionFileName(file));
         try {
-          await apiClient.postForm<UploadSessionFileResponse>(
+          const response = await apiClient.postForm<UploadSessionFileResponse>(
             `v1/collections/${encodeURIComponent(collection)}/upload-sessions/${session.id}/files`,
             form,
             { signal },
           );
+          signal.throwIfAborted();
+          if (response.session.status === "canceled") canceledSession = response.session;
+          if (response.item.status === "failed" || response.item.status === "canceled") {
+            errors.push({
+              filename: uploadSessionFileName(file),
+              error: response.item.error_message ?? "File was not accepted",
+            });
+          }
         } catch (err) {
           signal.throwIfAborted();
+          const canceled = await cancellationFromError(err);
+          if (canceled) {
+            canceledSession = canceled;
+            return;
+          }
           errors.push({
             filename: uploadSessionFileName(file),
             error: err instanceof Error ? err.message : "Upload failed",
@@ -87,25 +110,40 @@ export const useUploadSessionDocuments = (
         }
       });
       signal.throwIfAborted();
-      const sessionPath = `v1/collections/${encodeURIComponent(collection)}/upload-sessions/${session.id}`;
-      const finalSession =
-        errors.length < files.length
-          ? await apiClient.post<UploadSession>(`${sessionPath}/complete`, undefined, { signal })
-          : await apiClient.get<UploadSession>(sessionPath, { signal });
+      let finalSession: UploadSession;
+      if (canceledSession) {
+        finalSession = canceledSession;
+      } else {
+        try {
+          finalSession = await apiClient.post<UploadSession>(`${sessionPath}/complete`, undefined, {
+            signal,
+          });
+        } catch (error) {
+          const canceled = await cancellationFromError(error);
+          if (!canceled) throw error;
+          finalSession = canceled;
+        }
+      }
       signal.throwIfAborted();
       return { errors, session: finalSession };
     },
-    onSuccess: ({ errors, session }) => {
+    onSuccess: ({ session }) => {
       if (!isCurrentSession(qc)) return;
       qc.invalidateQueries({ queryKey: queryKeys.documents.lists() });
       qc.invalidateQueries({
         queryKey: queryKeys.documents.uploadSession({ collection, id: session.id }),
       });
-      if (errors.length) {
-        toast.warning(`${errors.length} file${errors.length === 1 ? "" : "s"} need retry`);
+      if (session.status === "canceled") {
+        toast.info("Upload session canceled");
+        return;
+      }
+      const missing = Math.max(0, session.total_files - session.uploaded_files);
+      const unsuccessful = session.failed_files + session.canceled_files + missing;
+      if (unsuccessful) {
+        toast.warning(`${unsuccessful} file${unsuccessful === 1 ? " needs" : "s need"} attention`);
       } else {
         toast.success(
-          `Queued ${session.uploaded_files} file${session.uploaded_files === 1 ? "" : "s"}`,
+          `Accepted ${session.uploaded_files} file${session.uploaded_files === 1 ? "" : "s"}`,
         );
       }
     },

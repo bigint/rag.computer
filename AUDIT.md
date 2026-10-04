@@ -41,8 +41,8 @@ Paths below are relative to `api/bigrag/` unless another package is named.
 | 21 | EOF without terminal event appears successful; `app/src/lib/chat-stream.ts` | Fixed in batch 2. Truncated mock SSE reproduced success at baseline. Parser requires done/error/[DONE], handles CRLF and terminal tails, cancels the reader, and ignores post-terminal frames. Partial answers remain visible beside an interruption error. |
 | 22 | Password change revokes session then UI logout fails | Fixed in batch 2. Independent review confirmed logout authenticates after password revokes every session. Successful password change now clears the cookie and local session directly, with guarded navigation and no extra logout call. Incorrect-current-password 401 preserves the session. |
 | 23 | Logout leaves chat/upload Zustand stores | Fixed in batch 2. Confirmed transitions replace/remount the QueryClient provider, abort generation-owned auth/upload requests and chat, reset stores, and seed the new session. Upload persistence is owner-bound; unowned v1 IDs are discarded. Generation guards prevent late callbacks from restoring tracking. Focus/reconnect and active-tab minute refresh detect confirmed expiry/account changes. |
-| 24 | Upload UI ignores returned `item.status=failed` | Source path confirmed; open. File responses can contain failed items, but the UI awaits and discards the response. Reproduce with a mocked file response in the next upload batch. |
-| 25 | Closed incomplete upload sessions remain uploading | Independently reproduced locally in batch 2 follow-up audit; open. A closed session with one completed item against three declared files returns uploading. Review close/retry/cancellation semantics before editing. |
+| 24 | Upload UI ignores returned `item.status=failed` | Fixed in batch 3. Baseline mock returned a failed item under HTTP 201 while the UI reported it queued. File responses now record failed/canceled items, final counts drive warnings, and issue panels remain visible. Failed validation rows keep their status during persistence. |
+| 25 | Closed incomplete upload sessions remain uploading | Fixed in batch 3. Baseline closed sessions with missing files remained preparing/uploading. Missing files after closure now fail once accepted work is inactive; active work stays ingesting. New file requests reject closed sessions. The UI closes after all attempts, including all failed requests, and recognizes cancellation conflicts. |
 | 26 | Allowed file types and empty-file semantics inconsistent | Open; compare upload entry points and server validation. |
 | 27 | Personal-key-only UI gate blocks instance chat credentials | Open; inspect safe readiness contract before removing gate. |
 | 28 | Analytics gather shares AsyncSession; `services/analytics.py` | Fixed in batch 1. Mock session reproduced overlapping execute calls at baseline. Period queries now run sequentially in one session, preserving output and five-minute cache. |
@@ -72,7 +72,7 @@ Local recovery: verification logs and temporary smoke scripts live beside this c
 
 Published batch 1: commit `d5f8c60d64826bdf0779678c6cf8fbbb442b9d5d` in draft PR [#90](https://github.com/bigint/rag.computer/pull/90). All six GitHub checks passed: lint, repo-check, SDK typecheck, Python SDK build, website build, and app build.
 
-Next bounded batch: handle upload terminal states (24–25). Replay authorization (2/18) needs guard extraction design; tenant isolation (3–7) needs explicit coordination with the separate migration work before persistence changes.
+Next coordination: replay authorization (2/18) needs guard extraction design; tenant isolation (3–7) needs explicit coordination with the separate migration work before persistence changes. Other bounded findings remain available for independent reproduction.
 
 Limitations: no live credential transmission, exploit, production database/vector access, Docker service start, provider billing, or deployed runtime verification. Idempotency authorization and tenant isolation remain open and are not claimed fixed.
 
@@ -88,3 +88,20 @@ Changes: UI stream terminal/ownership handling, password cookie cleanup, guarded
 - `git diff --check`: passed. Temporary scripts, browser artifacts, and logs stay outside the production checkout; no removed runner or suite restored.
 
 Limitations: confirmed `/me` responses drive expiry/account-switch cleanup; no claim of instantaneous detection across tabs. Canceling browser work cannot undo API work already accepted, and cross-tab cookie races remain outside this client lifecycle change. Explicit sign-out clears tracking IDs; same-account reload/refresh retains them.
+
+Published batch 2: commit `02c2f032028b920b4338374705f34c2f7f750a21` in draft PR #90. All six GitHub checks passed on this head.
+
+## Batch 3 verification
+
+Changes: upload item failure reporting, preservation of validation failures, closed/missing-file terminal states, rejection of new requests after closure, cancellation handling, and retained issue panels with matching documentation.
+
+- `pnpm check`: passed, covering repository lint, API Ruff lint/format, workspace typechecks, app/SDK/docs builds, and API compile. The final badge-only follow-up also passed app typecheck/build and Biome lint.
+- Eleven backend mocked checks passed: open/closed count and active-work combinations, cancellation preservation, full-count partial success, failed-item persistence, and rejection after closure.
+- Eleven UI runtime checks passed: failed/canceled HTTP-success items, accepted wording, closing after all failed requests, missing/late-failure warnings, cancellation from responses and file/finalization conflicts, unrelated conflicts, and issue-panel retention.
+- Independent review reran both sets and four additional in-memory checks using the real SDK ConflictError: pending attempts stop after cancellation, unrelated conflicts stay errors, session abort blocks closure, and failed cancellation lookup does not report false cancellation. Review approved the final warning badge for completed sessions containing failed/canceled files.
+- Intercepted browser smoke passed for a rejected HTTP 201 file with one completion call, a closed session with missing files, and a completed session with a canceled item. Tracking and issue panels remained visible; no browser runtime errors occurred. Screenshots were visually checked.
+- `git diff --check`: passed. Temporary scripts, logs, and browser artifacts remain outside the checkout. No test runner or coverage suite restored.
+
+Limitations: requests admitted before closure can still finish; stronger serialization, document registration, and quota races need a separate coordinated change. The batch does not claim transactional cancellation, automatic ingestion retry, or tenant isolation.
+
+Hourly continuation: a thread-heartbeat creation was attempted, but the app returned “Automations are only supported for local threads.” No recurring automation was created. This delegated task needs continuation from its local parent task; no standalone cron workaround was installed.
