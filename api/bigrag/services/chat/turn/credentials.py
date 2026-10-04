@@ -23,6 +23,14 @@ _PROVIDERS = {"openai", "openai_compatible"}
 _DEFAULT_OPENAI_CHAT_BASE_URL = "https://api.openai.com/v1"
 
 
+class ChatCredentialDecryptionError(ServerError):
+    pass
+
+
+class ChatCredentialDestinationError(ValidationError):
+    pass
+
+
 def _resolve_provider(provider: str | None, default_provider: str | None = "openai") -> str:
     value = (provider or default_provider or "openai").strip().lower()
     if value not in _PROVIDERS:
@@ -38,6 +46,19 @@ async def _resolve_api_credentials(
     if body.provider_api_key and body.provider_api_key.strip():
         return [ProviderCredential(api_key=body.provider_api_key.strip(), source="request")]
 
+    credentials = await resolve_stored_chat_credentials(session, user)
+    if not credentials:
+        raise ValidationError(
+            "Save an OpenAI API key in Chat settings, or pass provider_api_key "
+            "with the chat request."
+        )
+    return credentials
+
+
+async def resolve_stored_chat_credentials(
+    session: AsyncSession,
+    user: dict,
+) -> list[ProviderCredential]:
     credentials: list[ProviderCredential] = []
     data = await session.scalar(
         sa.select(UserPreference.data).where(UserPreference.user_id == UUID(user["id"]))
@@ -55,11 +76,6 @@ async def _resolve_api_credentials(
         env_key = os.environ.get("BIGRAG_CHAT_API_KEY")
         _append_credential(credentials, env_key, "instance chat key")
 
-    if not credentials:
-        raise ValidationError(
-            "Save an OpenAI API key in Chat settings, or pass provider_api_key "
-            "with the chat request."
-        )
     return credentials
 
 
@@ -75,7 +91,7 @@ def _append_credential(
     api_key = raw_api_key.strip()
     if api_key.startswith(crypto._FERNET_PREFIX):
         msg = f"{source} cannot be decrypted. Configure BIGRAG_MASTER_KEY."
-        raise ServerError(msg, public_message=msg)
+        raise ChatCredentialDecryptionError(msg, public_message=msg)
     if any(existing.api_key == api_key for existing in credentials):
         return
     credentials.append(ProviderCredential(api_key=api_key, source=source, base_url=base_url))
@@ -101,7 +117,7 @@ def assert_credentials_allowed_for_base_url(
         if credential.source != "saved chat key":
             continue
         if not credential.base_url:
-            raise ValidationError(
+            raise ChatCredentialDestinationError(
                 "Save the chat key again in Chat settings to bind it to the configured provider "
                 "URL."
             )
@@ -112,18 +128,18 @@ def assert_credentials_allowed_for_base_url(
         except (UnsafeOutboundUrlError, ValueError):
             matches = False
         if not matches:
-            raise ValidationError(
+            raise ChatCredentialDestinationError(
                 "The saved chat key belongs to a different provider URL. "
                 "Save a key for the configured provider, or pass provider_api_key with the request."
             )
     has_instance_key = _has_instance_chat_key(credentials)
     if request_base_url is not None and has_instance_key:
-        raise ValidationError(
+        raise ChatCredentialDestinationError(
             "provider_base_url requires provider_api_key or a saved chat key; "
             "the instance chat key cannot be sent to a custom base URL."
         )
     if base_url is not None and not _is_default_openai_chat_base_url(base_url) and has_instance_key:
-        raise ValidationError(
+        raise ChatCredentialDestinationError(
             "The instance chat key cannot be sent to a non-default chat base URL; "
             "save a chat key in Chat settings or pass provider_api_key."
         )

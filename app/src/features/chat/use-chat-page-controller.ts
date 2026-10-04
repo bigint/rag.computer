@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
@@ -6,8 +7,10 @@ import { defaultChatState } from "@/features/chat/chat-page-defaults";
 import { useChatStore } from "@/features/chat/chat-store";
 import { useChatStreaming } from "@/features/chat/use-chat-streaming";
 import { useChatQuestionSuggestions, useGenerateChatQuestions } from "@/hooks/use-chat";
+import { useChatReadiness } from "@/hooks/use-chat-readiness";
 import { useCollections } from "@/hooks/use-collections";
 import { usePreferences, useUpdatePreferences } from "@/hooks/use-preferences";
+import { isCurrentSession } from "@/lib/session-state";
 
 const useSelectAvailableCollection = (
   collections: { name: string }[],
@@ -27,6 +30,8 @@ const useSelectAvailableCollection = (
 };
 
 export const useChatPageController = () => {
+  const queryClient = useQueryClient();
+  const readiness = useChatReadiness();
   const prefsQuery = usePreferences();
   const updatePrefs = useUpdatePreferences();
   const generateQuestions = useGenerateChatQuestions();
@@ -64,6 +69,7 @@ export const useChatPageController = () => {
 
   const patchState = useCallback(
     (patch: Partial<ChatState> & { openaiKey?: string }) => {
+      if (!isCurrentSession(queryClient)) return;
       const mapped: Record<string, unknown> = {};
       if (patch.openaiKey !== undefined) mapped.openai_key = patch.openaiKey;
       if (patch.model !== undefined) mapped.model = patch.model;
@@ -77,11 +83,13 @@ export const useChatPageController = () => {
         { chat: mapped },
         {
           onSuccess: () => {
+            if (!isCurrentSession(queryClient)) return;
             if (patch.openaiKey !== undefined) {
               toast.success(patch.openaiKey ? "OpenAI key saved" : "OpenAI key cleared");
             }
           },
           onError: (error) => {
+            if (!isCurrentSession(queryClient)) return;
             if (patch.openaiKey !== undefined) {
               toast.error(error instanceof Error ? error.message : "Could not save OpenAI key");
             }
@@ -89,11 +97,12 @@ export const useChatPageController = () => {
         },
       );
     },
-    [updatePrefs],
+    [queryClient, updatePrefs],
   );
 
   const questionsQuery = useChatQuestionSuggestions(collection);
   const { handleSend, stopStreaming } = useChatStreaming({
+    canUseCredentials: readiness.canUseCredentials,
     collection,
     state,
   });
@@ -106,13 +115,13 @@ export const useChatPageController = () => {
   );
 
   const handleGenerateQuestions = useCallback(() => {
-    if (!collection) return;
+    if (!collection || !readiness.canUseCredentials() || generateQuestions.isPending) return;
     generateQuestions.mutate({
       collection: collection,
       model: state.model,
       temperature: state.temperature,
     });
-  }, [collection, generateQuestions, state.model, state.temperature]);
+  }, [collection, generateQuestions, readiness.canUseCredentials, state.model, state.temperature]);
 
   const handleClear = useCallback(() => {
     stopStreaming();
@@ -121,12 +130,16 @@ export const useChatPageController = () => {
 
   const resendFrom = useCallback(
     (messageIndex: number, content: string) => {
+      if (!readiness.canUseCredentials()) {
+        toast.error("Check chat credentials before retrying");
+        return;
+      }
       stopStreaming();
       const currentMessages = useChatStore.getState().messages;
       setMessages(currentMessages.slice(0, messageIndex));
       void handleSend(content);
     },
-    [handleSend, setMessages, stopStreaming],
+    [handleSend, readiness.canUseCredentials, setMessages, stopStreaming],
   );
 
   const handleEditUserMessage = useCallback(
@@ -160,7 +173,7 @@ export const useChatPageController = () => {
   return {
     collection,
     collections,
-    disabled: !state.hasOpenAIKey || !collection,
+    disabled: !readiness.status.ready || !collection,
     generateQuestionsPending: generateQuestions.isPending,
     handleClear,
     handleCollectionChange,
@@ -173,6 +186,7 @@ export const useChatPageController = () => {
     messages,
     patchState,
     questions: questionsQuery.data?.questions ?? [],
+    readiness: readiness.status,
     saving: updatePrefs.isPending,
     state,
     stopStreaming,

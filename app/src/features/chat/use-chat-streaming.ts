@@ -6,15 +6,22 @@ import type { ChatMessage } from "@/features/chat/chat-messages";
 import { createChatMessageId } from "@/features/chat/chat-page-defaults";
 import { normalizeTimings, timingsFromRetrieval } from "@/features/chat/chat-page-timings";
 import { useChatStore } from "@/features/chat/chat-store";
+import { refreshChatCredentials } from "@/hooks/use-chat-readiness";
 import { streamChat } from "@/lib/chat-stream";
-import { queryKeys } from "@/lib/query-keys";
+import { withSessionSignal } from "@/lib/session-request";
+import { isCurrentSession } from "@/lib/session-state";
 
 type ChatStreamingOptions = {
+  canUseCredentials: () => boolean;
   collection: string;
   state: ChatState;
 };
 
-export const useChatStreaming = ({ collection, state }: ChatStreamingOptions) => {
+export const useChatStreaming = ({
+  canUseCredentials,
+  collection,
+  state,
+}: ChatStreamingOptions) => {
   const queryClient = useQueryClient();
   const abortRef = useRef<AbortController | null>(null);
   const flushRef = useRef<(() => void) | null>(null);
@@ -38,8 +45,9 @@ export const useChatStreaming = ({ collection, state }: ChatStreamingOptions) =>
   const handleSend = useCallback(
     async (text: string) => {
       if (useChatStore.getState().activeStream) return;
-      if (!state.hasOpenAIKey) {
-        toast.error("Add your OpenAI API key first");
+      if (!isCurrentSession(queryClient)) return;
+      if (!canUseCredentials()) {
+        toast.error("Check chat credentials before sending");
         return;
       }
       if (!collection) {
@@ -55,7 +63,8 @@ export const useChatStreaming = ({ collection, state }: ChatStreamingOptions) =>
       const controller = startStream(collection, [userMsg, assistantMsg]);
       if (!controller) return;
       abortRef.current = controller;
-      const ownsStream = () => useChatStore.getState().activeStream === controller;
+      const ownsStream = () =>
+        isCurrentSession(queryClient) && useChatStore.getState().activeStream === controller;
       let deltaBuffer = "";
       let deltaFrame: number | null = null;
       const flushDelta = () => {
@@ -80,73 +89,72 @@ export const useChatStreaming = ({ collection, state }: ChatStreamingOptions) =>
           deltaFrame = window.requestAnimationFrame(flushDelta);
         }
       };
-      const refreshPreferencesIfCredentialError = (message: string) => {
-        if (message.includes("OpenAI rejected") || message.includes("Save an OpenAI API key")) {
-          queryClient.invalidateQueries({ queryKey: queryKeys.preferences() });
-        }
-      };
-
       try {
-        await streamChat({
-          signal: controller.signal,
-          body: {
-            message: text,
-            collection: collection,
-            model_provider: "openai",
-            model: state.model,
-            temperature: state.temperature,
-            top_k: state.topK,
-            search_mode: state.searchMode,
-            rerank: state.rerank,
-            multimodal: state.multimodal,
-            system_prompt: state.systemPrompt,
-          },
-          onEvent: (event) => {
-            if (!ownsStream()) return;
-            if (event.event === "sources") {
-              updateMessage(currentAssistantId, (message) => ({
-                ...message,
-                meta: {
-                  collection: event.data.collection,
-                  sources: event.data.sources,
-                  timings: normalizeTimings(event.data.timings),
-                },
-              }));
-              return;
-            }
-            if (event.event === "delta") {
-              enqueueDelta(event.data.delta);
-              return;
-            }
-            if (event.event === "assistant_message") {
-              flushDelta();
-              updateMessage(currentAssistantId, (message) => ({
-                ...message,
-                id: event.data.id,
-                content: event.data.content,
-                status: event.data.status,
-                errorMessage: event.data.error_message,
-                meta: {
-                  collection: collection,
-                  sources: event.data.sources,
-                  timings: timingsFromRetrieval(event.data),
-                },
-              }));
-              currentAssistantId = event.data.id;
-              return;
-            }
-            if (event.event === "error") {
-              flushDelta();
-              updateMessage(currentAssistantId, (message) => ({
-                ...message,
-                status: "error",
-                errorMessage: event.data.error,
-              }));
-              refreshPreferencesIfCredentialError(event.data.error);
-              toast.error(event.data.error);
-            }
-          },
-        });
+        await withSessionSignal(
+          queryClient,
+          (signal) =>
+            streamChat({
+              signal,
+              body: {
+                message: text,
+                collection: collection,
+                model_provider: "openai",
+                model: state.model,
+                temperature: state.temperature,
+                top_k: state.topK,
+                search_mode: state.searchMode,
+                rerank: state.rerank,
+                multimodal: state.multimodal,
+                system_prompt: state.systemPrompt,
+              },
+              onEvent: (event) => {
+                if (!ownsStream()) return;
+                if (event.event === "sources") {
+                  updateMessage(currentAssistantId, (message) => ({
+                    ...message,
+                    meta: {
+                      collection: event.data.collection,
+                      sources: event.data.sources,
+                      timings: normalizeTimings(event.data.timings),
+                    },
+                  }));
+                  return;
+                }
+                if (event.event === "delta") {
+                  enqueueDelta(event.data.delta);
+                  return;
+                }
+                if (event.event === "assistant_message") {
+                  flushDelta();
+                  updateMessage(currentAssistantId, (message) => ({
+                    ...message,
+                    id: event.data.id,
+                    content: event.data.content,
+                    status: event.data.status,
+                    errorMessage: event.data.error_message,
+                    meta: {
+                      collection: collection,
+                      sources: event.data.sources,
+                      timings: timingsFromRetrieval(event.data),
+                    },
+                  }));
+                  currentAssistantId = event.data.id;
+                  return;
+                }
+                if (event.event === "error") {
+                  flushDelta();
+                  updateMessage(currentAssistantId, (message) => ({
+                    ...message,
+                    status: "error",
+                    errorMessage: event.data.error,
+                  }));
+                  void refreshChatCredentials(queryClient);
+                  toast.error(event.data.error);
+                }
+              },
+            }),
+          controller.signal,
+        );
         if (ownsStream()) {
           flushDelta();
           updateMessage(currentAssistantId, (message) => ({
@@ -170,7 +178,7 @@ export const useChatStreaming = ({ collection, state }: ChatStreamingOptions) =>
             status: "error",
             errorMessage: message,
           }));
-          refreshPreferencesIfCredentialError(message);
+          void refreshChatCredentials(queryClient);
           toast.error(message);
         }
       } finally {
@@ -187,10 +195,10 @@ export const useChatStreaming = ({ collection, state }: ChatStreamingOptions) =>
     },
     [
       collection,
+      canUseCredentials,
       queryClient,
       finishStream,
       startStream,
-      state.hasOpenAIKey,
       state.model,
       state.multimodal,
       state.rerank,

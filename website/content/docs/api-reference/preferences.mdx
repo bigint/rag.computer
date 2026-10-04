@@ -29,6 +29,32 @@ GET /v1/auth/preferences
 
 New users return `{"data": {}}`.
 
+## Check Chat Credential Readiness
+
+```
+GET /v1/auth/preferences/chat-readiness
+```
+
+Session-only. Computes local credential eligibility for the authenticated user's browser chat and question-generation requests, which use OpenAI with the instance's default chat destination and no request credential or URL override. Accepts no user ID, key, provider or destination override. API-key and MCP-key authentication receive `403`; missing session authentication receives `401`.
+
+**Response** `200`, with `Cache-Control: private, no-store`:
+
+```json
+{
+  "credential_ready": true,
+  "credential_source": "instance",
+  "reason": null
+}
+```
+
+`credential_source` is `saved`, `instance`, or `null`. Ready responses always have a source and a null reason. Blocked configuration returns `credential_ready: false`, a null source, and one of `missing_credentials`, `credential_blocked`, or `decryption_unavailable`. Unexpected database or runtime failures remain operational errors.
+
+Saved credentials take precedence. An unbound, forged or mismatched saved key blocks instance fallback and must be saved again. Missing decryption configuration remains blocked; the existing invalid-ciphertext handling can discard a saved key and select eligible instance credentials. Editable `chat.has_openai_key` is presentation data and cannot establish readiness. The result is computed separately from writable preference `data` and contains no secret or destination.
+
+This check performs no DNS, provider, retrieval or collection access request. It does not establish provider acceptance, connectivity, model availability or chat authorization, and does not describe arbitrary SDK credential/provider/URL overrides. Actual chat requests retain their existing checks and can reject a stale positive result.
+
+Studio refreshes readiness on chat entry, focus, reconnect, every minute while foregrounded, after a personal-key save or clear, and after a current-session chat or question-generation error. Use **Check again** for a manual refresh. Sending and question generation wait for readiness and key changes to settle; personal-key controls, history and Stop remain available. Confirmed account changes cancel owned requests and discard late callbacks; cancellation cannot undo work the server has already accepted.
+
 ## Update Preferences
 
 ```

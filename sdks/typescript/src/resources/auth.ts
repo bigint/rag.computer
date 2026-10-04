@@ -1,6 +1,7 @@
 import type { RequestClient } from "../core.js";
 import type {
   ChangePasswordBody,
+  ChatReadinessResponse,
   LoginBody,
   PreferencesResponse,
   SessionResponse,
@@ -47,6 +48,10 @@ export class AuthResource {
 
   getPreferences(): Promise<PreferencesResponse> {
     return this._client._request("GET", "/v1/auth/preferences");
+  }
+
+  chatReadiness(): Promise<ChatReadinessResponse> {
+    return this._client._request("GET", "/v1/auth/preferences/chat-readiness");
   }
 
   updatePreferences(data: Record<string, unknown>): Promise<PreferencesResponse> {

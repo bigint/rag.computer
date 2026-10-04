@@ -21,7 +21,7 @@ export const ChatPage = () => {
                 collection={chat.collection}
                 collectionCount={chat.collections.length}
                 disabled={chat.disabled}
-                hasOpenAIKey={chat.state.hasOpenAIKey}
+                readiness={chat.readiness}
                 isGeneratingQuestions={chat.generateQuestionsPending}
                 onGenerateQuestions={chat.handleGenerateQuestions}
                 onSelect={chat.handleSend}
@@ -46,6 +46,7 @@ export const ChatPage = () => {
               onPatch={chat.patchState}
               onSend={chat.handleSend}
               onStop={chat.stopStreaming}
+              readiness={chat.readiness}
               saving={chat.saving}
               state={chat.state}
             />

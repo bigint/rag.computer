@@ -80,6 +80,7 @@ export const queryKeys = {
       ] as const,
   },
   chat: {
+    readiness: () => ["chat", "readiness"] as const,
     questions: ({ collection }: ChatQuestionsParams) =>
       ["chat", "questions", { collection }] as const,
   },

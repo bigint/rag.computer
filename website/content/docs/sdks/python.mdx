@@ -224,6 +224,8 @@ chunks = await client.documents.get_chunks_by_id("doc-id")
 
 ## Chat
 
+For session-authenticated clients, `await client.auth.chat_readiness()` returns the exported `ChatReadinessResponse` type from the [chat credential readiness endpoint](/docs/api-reference/preferences#check-chat-credential-readiness). It reports local saved/instance credential configuration for the browser's default-destination OpenAI contract, without contacting the provider. It does not grant chat access or validate arbitrary request overrides; API keys receive `403`.
+
 ```python
 # Non-streaming generated answer with citations
 answer = await client.chat.create({

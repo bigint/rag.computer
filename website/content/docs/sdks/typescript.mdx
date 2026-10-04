@@ -246,8 +246,11 @@ client.auth.me()
 client.auth.whoami()
 client.auth.changePassword({ current_password, new_password })
 client.auth.getPreferences()
+client.auth.chatReadiness()
 client.auth.updatePreferences({ theme: "dark" })
 ```
+
+`auth.chatReadiness()` returns `ChatReadinessResponse` from the session-only [chat credential readiness endpoint](/docs/api-reference/preferences#check-chat-credential-readiness). It checks local saved/instance credential configuration for the browser's default-destination OpenAI contract, without contacting the provider. It does not grant chat access or validate arbitrary request overrides; API keys receive `403`.
 
 ## Admin
 

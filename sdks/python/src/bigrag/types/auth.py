@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, NotRequired, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 
 class SetupStatusResponse(TypedDict):
@@ -50,3 +50,9 @@ class WhoamiResponse(TypedDict):
 
 class PreferencesResponse(TypedDict):
     data: dict[str, Any]
+
+
+class ChatReadinessResponse(TypedDict):
+    credential_ready: bool
+    credential_source: Literal["saved", "instance"] | None
+    reason: Literal["missing_credentials", "credential_blocked", "decryption_unavailable"] | None

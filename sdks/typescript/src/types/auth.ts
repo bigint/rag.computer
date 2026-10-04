@@ -46,3 +46,9 @@ export interface WhoamiResponse {
 export interface PreferencesResponse {
   data: Record<string, unknown>;
 }
+
+export interface ChatReadinessResponse {
+  credential_ready: boolean;
+  credential_source: "saved" | "instance" | null;
+  reason: "missing_credentials" | "credential_blocked" | "decryption_unavailable" | null;
+}

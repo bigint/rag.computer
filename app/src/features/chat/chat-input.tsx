@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import type { ChatReadinessStatus } from "@/hooks/use-chat-readiness";
 import { cn } from "@/lib/cn";
 import type { Collection } from "@/types/bigrag";
 import {
@@ -21,6 +22,7 @@ import {
   SettingsMenu,
   ToolbarPopover,
 } from "./chat-input-controls";
+import { ChatReadinessNotice } from "./chat-readiness-notice";
 
 export type { ChatState } from "./chat-input-controls";
 
@@ -35,6 +37,7 @@ interface Props {
   onPatch: (patch: ChatPatch) => void;
   onSend: (text: string) => void;
   onStop: () => void;
+  readiness: ChatReadinessStatus;
   saving: boolean;
   state: ChatState;
 }
@@ -48,6 +51,7 @@ export const ChatInput = ({
   onPatch,
   onSend,
   onStop,
+  readiness,
   saving,
   state,
 }: Props) => {
@@ -82,7 +86,7 @@ export const ChatInput = ({
   const selectedModelLabel =
     OPENAI_MODELS.find((m) => m.value === state.model)?.label ?? state.model;
   const keyIsSet = state.hasOpenAIKey;
-  const readyLabel = keyIsSet ? "API key saved" : "Add API key";
+  const readyLabel = keyIsSet ? "Personal key saved" : "Add personal key";
 
   return (
     <div className="shrink-0 border-t border-border bg-background px-3 py-3 md:px-5">
@@ -156,7 +160,10 @@ export const ChatInput = ({
             onOpenChange={(nextOpen) => setOpen(nextOpen ? "key" : null)}
             trigger={
               <Button
-                className={cn("h-8 justify-start px-2.5 text-xs", !keyIsSet && "text-destructive")}
+                className={cn(
+                  "h-8 justify-start px-2.5 text-xs",
+                  !keyIsSet && !readiness.ready && "text-destructive",
+                )}
                 variant="ghost"
               >
                 <KeyRound className="size-3.5" />
@@ -194,11 +201,11 @@ export const ChatInput = ({
             }}
             onKeyDown={handleKeyDown}
             placeholder={
-              keyIsSet
+              readiness.ready
                 ? collection
                   ? "Ask a grounded question..."
                   : "Choose a collection before starting."
-                : "Save an OpenAI API key before starting."
+                : "Write a question while chat credentials are checked."
             }
             rows={1}
             style={{ maxHeight: 184 }}
@@ -220,6 +227,7 @@ export const ChatInput = ({
             </Button>
           )}
         </div>
+        <ChatReadinessNotice readiness={readiness} />
       </div>
     </div>
   );

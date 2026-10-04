@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from bigrag.types.auth import (
     ChangePasswordBody,
+    ChatReadinessResponse,
     LoginBody,
     PreferencesResponse,
     SessionResponse,
@@ -47,6 +48,9 @@ class AuthResource:
 
     async def get_preferences(self) -> PreferencesResponse:
         return await self._client._request("GET", "/v1/auth/preferences")
+
+    async def chat_readiness(self) -> ChatReadinessResponse:
+        return await self._client._request("GET", "/v1/auth/preferences/chat-readiness")
 
     async def update_preferences(self, data: dict[str, Any]) -> PreferencesResponse:
         return await self._client._request("PUT", "/v1/auth/preferences", json={"data": data})

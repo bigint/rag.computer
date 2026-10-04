@@ -42,6 +42,7 @@ from bigrag.types.admin import (
 from bigrag.types.analytics import AnalyticsResponse, PeriodStats, TopQuery
 from bigrag.types.auth import (
     ChangePasswordBody,
+    ChatReadinessResponse,
     LoginBody,
     PreferencesResponse,
     SessionResponse,
@@ -157,6 +158,7 @@ __all__ = [
     "LoginBody",
     "SetupBody",
     "ChangePasswordBody",
+    "ChatReadinessResponse",
     "User",
     "SessionResponse",
     "WhoamiResponse",

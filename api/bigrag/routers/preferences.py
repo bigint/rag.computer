@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 import sqlalchemy as sa
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +11,8 @@ from bigrag.db.models import UserPreference
 from bigrag.db.session import get_session
 from bigrag.logging import get_logger
 from bigrag.middleware.auth import require_session
+from bigrag.models.chat_readiness import ChatReadinessResponse
+from bigrag.services.chat.readiness import get_chat_readiness
 from bigrag.services.preferences import (
     _deep_merge,
     _encrypt_sensitive,
@@ -23,6 +25,16 @@ from bigrag.services.preferences import (
 logger = get_logger("bigrag.routers.preferences")
 
 router = APIRouter(prefix="/v1/auth/preferences", tags=["auth"])
+
+
+@router.get("/chat-readiness", response_model=ChatReadinessResponse)
+async def chat_readiness(
+    response: Response,
+    user: dict = Depends(require_session),
+    session: AsyncSession = Depends(get_session),
+) -> ChatReadinessResponse:
+    response.headers["Cache-Control"] = "private, no-store"
+    return await get_chat_readiness(session, user)
 
 
 @router.get("", response_model=dict[str, dict])

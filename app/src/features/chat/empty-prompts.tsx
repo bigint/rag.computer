@@ -1,11 +1,12 @@
 import { ArrowUpRight, RefreshCcw, Shuffle, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { ChatReadinessStatus } from "@/hooks/use-chat-readiness";
 
 interface Props {
   collection: string;
   collectionCount: number;
   disabled?: boolean;
-  hasOpenAIKey: boolean;
+  readiness: ChatReadinessStatus;
   isGeneratingQuestions: boolean;
   onGenerateQuestions: () => void;
   onSelect: (text: string) => void;
@@ -16,19 +17,20 @@ export const EmptyPrompts = ({
   collection,
   collectionCount,
   disabled,
-  hasOpenAIKey,
+  readiness,
   isGeneratingQuestions,
   onGenerateQuestions,
   onSelect,
   questions,
 }: Props) => {
   const missingCollection = collectionCount === 0 || !collection;
-  const notice = hasOpenAIKey
+  const notice = readiness.ready
     ? missingCollection
       ? "Choose a collection to start asking questions."
       : null
-    : "Add an API key to start asking questions.";
-  const canGenerateQuestions = !disabled && !missingCollection && !isGeneratingQuestions;
+    : readiness.message;
+  const canGenerateQuestions =
+    readiness.ready && !disabled && !missingCollection && !isGeneratingQuestions;
   const hasQuestions = questions.length > 0;
 
   return (
@@ -45,7 +47,7 @@ export const EmptyPrompts = ({
           {notice && (
             <div className="mx-auto mt-4 inline-flex max-w-full items-center gap-2 rounded-md border border-border bg-muted/60 px-3 py-2 text-xs font-semibold text-muted-foreground">
               <TriangleAlert className="size-3.5 shrink-0" />
-              <span className="truncate">{notice}</span>
+              <span>{notice}</span>
             </div>
           )}
         </section>
@@ -105,7 +107,8 @@ export const EmptyPrompts = ({
                 {isGeneratingQuestions ? "Generating" : "Generate 5 questions"}
               </Button>
               <p className="max-w-sm text-sm leading-6 text-muted-foreground">
-                Uses your saved AI key to create questions from ready documents in this collection.
+                Uses eligible chat credentials to create questions from ready documents in this
+                collection.
               </p>
             </div>
           )}
