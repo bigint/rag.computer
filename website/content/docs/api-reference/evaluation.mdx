@@ -47,7 +47,7 @@ The admin UI exposes the same runner under **Settings → Evaluation**.
 | `collection` | string | yes | Target collection name |
 | `cases[]` | array | yes | 1–500 labelled cases |
 | `cases[].query` | string | yes | Non-empty |
-| `cases[].relevant_ids` | string[] | yes | Document IDs (or chunk IDs of the form `<doc>#<n>`); at least one |
+| `cases[].relevant_ids` | string[] | yes | IDs matched against `hit_ids`; at least one |
 | `cases[].filters` | object | no | Per-case metadata filters; overrides request-level `filters` for that case |
 | `cases[].top_k` | integer | no | 1–100. Overrides the request-level `top_k` for this case |
 | `filters` | object | no | Request-level metadata filters applied to cases that omit `cases[].filters` |
@@ -82,7 +82,9 @@ The collection's saved reranking config is applied automatically — there is no
 
 - **Recall@k** — fraction of `relevant_ids` that appear anywhere in the top-k hits
 - **MRR** — `1 / rank` of the first relevant hit, averaged across cases
-- **nDCG@k** — rank-discounted relevance, averaged across cases
+- **nDCG@k** — rank-discounted relevance in `[0, 1]`, averaged across cases. Each relevant ID receives credit only at its first occurrence.
+
+Ingested chunk hits use their document ID; hits without a document ID use their own ID. Repeated hits remain in `hit_ids` and occupy their original ranks, but do not add relevance credit. The metrics score the retrieved top-k hits without fetching extra hits to replace duplicates. Rankings with unique IDs retain their previous scores. Previously returned or cached evaluation responses are not rewritten; run a new evaluation to obtain corrected scores.
 
 </Accordion>
 

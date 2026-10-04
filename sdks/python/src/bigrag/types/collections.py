@@ -80,7 +80,7 @@ class UpdateCollectionBody(TypedDict, total=False):
     multimodal_enabled: bool
     multimodal_enrichment_enabled: bool
     default_top_k: int
-    default_min_score: float
+    default_min_score: float | None
     default_search_mode: SearchMode
     chunk_strategy: str
-    metadata_schema: dict[str, Any]
+    metadata_schema: dict[str, Any] | None

@@ -63,7 +63,7 @@ async def apply_collection_update(
     if body.default_top_k is not None:
         collection.default_top_k = body.default_top_k
         fields.append("default_top_k")
-    if body.default_min_score is not None:
+    if "default_min_score" in body.model_fields_set:
         collection.default_min_score = body.default_min_score
         fields.append("default_min_score")
     if body.default_search_mode is not None:
@@ -72,7 +72,7 @@ async def apply_collection_update(
     if body.chunk_strategy is not None:
         collection.chunk_strategy = body.chunk_strategy
         fields.append("chunk_strategy")
-    if body.metadata_schema is not None:
+    if "metadata_schema" in body.model_fields_set:
         collection.metadata_schema = body.metadata_schema
         fields.append("metadata_schema")
     return fields

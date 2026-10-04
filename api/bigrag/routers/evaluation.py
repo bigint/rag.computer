@@ -68,10 +68,11 @@ def _ndcg_at_k(hit_ids: list[str], expected: set[str]) -> float:
     if not expected:
         return 0.0
     dcg = 0.0
+    credited: set[str] = set()
     for idx, h in enumerate(hit_ids, start=1):
-        rel = 1 if h in expected else 0
-        if rel:
+        if h in expected and h not in credited:
             dcg += 1.0 / math.log2(idx + 1)
+            credited.add(h)
     k = len(hit_ids)
     ideal = sum(1.0 / math.log2(i + 1) for i in range(1, min(len(expected), k) + 1))
     return dcg / ideal if ideal else 0.0

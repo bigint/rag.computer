@@ -80,8 +80,8 @@ export interface UpdateCollectionBody {
   multimodal_enabled?: boolean;
   multimodal_enrichment_enabled?: boolean;
   default_top_k?: number;
-  default_min_score?: number;
+  default_min_score?: number | null;
   default_search_mode?: "semantic" | "keyword" | "hybrid";
   chunk_strategy?: "paragraph" | "recursive";
-  metadata_schema?: Record<string, unknown>;
+  metadata_schema?: Record<string, unknown> | null;
 }

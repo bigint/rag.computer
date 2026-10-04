@@ -11,6 +11,7 @@ The original 36 findings below came from a source audit, not live exploitation. 
 - No `.agents` directory or nested `AGENTS.md` exists in the baseline checkout. Root `AGENTS.md` and `STYLEGUIDE.md` govern this work. Removed test runners and coverage suites stay removed. Behavioral verification uses temporary local smoke scripts with mock transports and fake credentials outside the repository.
 - Tenant findings 4–7, related metadata propagation, and replay authorization need a coherent design before schema, reindex, or provisioning work. Tenant provisioning stays unchanged.
 - Uncommitted batches are backed up outside this checkout before commit. Each useful batch requires relevant checks and independent review. Do not create changes merely to fill an hourly schedule.
+- Parent continuation requires approximately one combined commit per hour, anchored to the latest publication. Journal is running in its separate coordinator; this work must not start or modify Journal. The parent handles continuation scheduling.
 
 ## Findings
 
@@ -46,10 +47,10 @@ Paths below are relative to `api/bigrag/` unless another package is named.
 | 26 | Allowed file types and empty-file semantics inconsistent | Open; compare upload entry points and server validation. |
 | 27 | Personal-key-only UI gate blocks instance chat credentials | Open; inspect safe readiness contract before removing gate. |
 | 28 | Analytics gather shares AsyncSession; `services/analytics.py` | Fixed in batch 1. Mock session reproduced overlapping execute calls at baseline. Period queries now run sequentially in one session, preserving output and five-minute cache. |
-| 29 | NDCG duplicates document hits and can exceed 1 | Open; validate relevance unit and duplicate handling. |
+| 29 | NDCG duplicates document hits and can exceed 1 | Corrected in the pending batch 4. Actual baseline helper scored three hits for one relevant document as 2.1309297535714578. Each relevant ID now earns credit only once at its original rank; hit_ids, recall, MRR, and unique rankings stay unchanged. See pending-batch verification before publication. |
 | 30 | ASCII/length tokenizer drops Unicode and short terms | Open; inspect backend lexical search contract and generate bounded examples. |
 | 31 | Reranking only final top-k and silent degradation | Open; inspect candidate budget and safe error signaling. |
-| 32 | Explicit null settings cannot clear values | Open; inspect update models, fields-set semantics, and docs. |
+| 32 | Explicit null settings cannot clear values | Partially corrected in pending batch 4 for nullable collection default_min_score and metadata_schema. Baseline explicit null changed neither field; updates now use fields-set semantics and both SDK update types admit null. Omission, zero, and empty schema retain their semantics. API-key expiry and other nullable update contracts remain open for separate validation. |
 | 33 | Retrieved context in system prompt lacks untrusted-data boundary | Open; inspect prompt/data roles without live provider calls. |
 | 34 | Usage estimates characters/4 with incomplete prices/history | Open; describe estimate provenance; do not present as billing or change billing. |
 | 35 | Upload polling loads all rows | Open; inspect active-session query and pagination. |
@@ -105,3 +106,22 @@ Changes: upload item failure reporting, preservation of validation failures, clo
 Limitations: requests admitted before closure can still finish; stronger serialization, document registration, and quota races need a separate coordinated change. The batch does not claim transactional cancellation, automatic ingestion retry, or tenant isolation.
 
 Hourly continuation: a thread-heartbeat creation was attempted, but the app returned “Automations are only supported for local threads.” No recurring automation was created. This delegated task needs continuation from its local parent task; no standalone cron workaround was installed.
+
+Published batch 3: commit `eb9486f9eeeab1e2e3f828cf385126b241f79b3b` in draft PR #90 at approximately 10:00 UTC. All six GitHub checks passed. The parent subsequently confirmed it handles scheduling; no automation setup is needed here. The next routine combined publication is held until approximately 11:00 UTC.
+
+## Pending batch 4
+
+Related retrieval correctness changes: unique nDCG relevance credit and explicit clearing of nullable collection retrieval/validation settings, with SDK types and matching docs. No schema or reindex change. Reproductions and smoke scripts live outside the checkout.
+
+Design proposals are in [authorization-options.md](docs/audit/authorization-options.md). Replay response quarantine versus shared current-authorization guards and tenant collection quarantine versus shared/separate durable layouts require a decision before larger implementation. Proposals include current reachability, compatibility, legacy handling, and schema/reindex boundaries; this batch implements none of those options.
+
+Verification before the held publication:
+
+- `pnpm check`: passed on final code; final documentation build also passed after compatibility clarification.
+- 25 external runtime checks and 364 ranking combinations passed. Clearing metadata validation still requires tenant metadata where configured.
+- Independent review passed 43,688 ranked-list/label-set comparisons against a first-occurrence oracle, including unchanged recall/MRR and 520 unchanged unique rankings. Isolated handler execution preserved hit IDs, top-k, per-case/aggregate output, and one retrieval per case.
+- Actual Python SDK MockTransport and compiled TypeScript SDK mocked fetch preserved explicit null, omission, zero, and empty schema; the public TypeScript null contract compiled. An initial external type-check invocation omitted the SDK's Node type settings; it passed after using the existing Node type root.
+- Pre-commit hooks, Python SDK Ruff/format, wheel/source-distribution build, and diff checks passed. The package build initially hit sandbox DNS while resolving its existing Hatchling backend; it passed with authorized network access. No build configuration or dependency declaration changed.
+- Independent design review corrected credential-cache precedence, fresh role/session requirements, suggestions generation, global aggregate coverage, tenant creation, T0/replay interaction, and T2 session policy. No blocker remains to presenting the proposals; larger implementation requires the requested policy decision.
+
+No new commit or push yet: retain one combined batch for the next approximately 11:00 UTC publication window. Existing PR head remains eb9486f9; its six CI jobs passed.

@@ -138,7 +138,7 @@ Only the fields below are mutable. Embedding provider / model / dimension, chunk
 |-------|------|-------|
 | `description` | string | — |
 | `metadata` | object | Replaces entire metadata object |
-| `metadata_schema` | object | Updates JSON Schema validation |
+| `metadata_schema` | object or `null` | Updates JSON Schema validation; `null` removes the validation schema |
 | `chunk_strategy` | string | `paragraph` or `recursive` |
 | `embedding_api_key` | string | Validated against the provider before saving; empty values are rejected. Saving a key here switches the collection to a per-collection override and detaches it from any preset |
 | `reranking_enabled` | boolean | — |
@@ -147,8 +147,10 @@ Only the fields below are mutable. Embedding provider / model / dimension, chunk
 | `multimodal_enabled` | boolean | Disabling it also disables enrichment for future ingestions |
 | `multimodal_enrichment_enabled` | boolean | Enabling it also enables `multimodal_enabled` |
 | `default_top_k` | integer | 1–200 |
-| `default_min_score` | float | — |
+| `default_min_score` | float or `null` | `null` removes the default minimum score |
 | `default_search_mode` | string | `semantic`, `keyword`, `hybrid` |
+
+Omitted fields keep their current values. Sending `null` explicitly clears `metadata_schema` or `default_min_score`; `{}` and `0` remain valid values. These updates change future validation or retrieval defaults and do not reindex existing documents.
 
 **Response** `200`: Updated collection object. **Errors:** `404`, `422` (when `embedding_api_key` is empty or rejected by the provider).
 
