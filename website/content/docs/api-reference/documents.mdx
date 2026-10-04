@@ -303,6 +303,8 @@ curl -X POST http://localhost:4000/v1/collections/docs/upload-sessions/$SESSION_
 
 Each accepted file is validated, deduped by `content_hash`, staged temporarily, converted into a `Document`, and queued for ingestion. Failed files are recorded as upload-session items and do not abort the session. A successful HTTP response can still contain an item with `status: "failed"` or `"canceled"`; inspect the item status and `error_message`. The admin UI reports these outcomes and keeps rejected or missing files visible for review.
 
+While the session is open and nonterminal, resubmit an item marked `failed` using the same `client_item_id`. Closed or terminal sessions reject file requests with `409`. The session-size check counts nonfailed items plus the retry's new file size. A failed item's previous size is excluded and does not provide an extra allowance. This check uses the request's session snapshot; it does not reserve capacity across simultaneous file requests.
+
 **Session lifecycle endpoints:**
 
 ```

@@ -81,7 +81,12 @@ export const CollectionSettings = ({ name }: { name: string }) => {
 
   const saveFileTypes = async () => {
     const list = draft.fileTypesDraft;
-    const unrestricted = list.length === ALL_FILE_TYPES.length;
+    if (list.length === 0) {
+      toast.error("Select at least one file type, or choose Select all.");
+      return;
+    }
+    const unrestricted =
+      list.length === ALL_FILE_TYPES.length && ALL_FILE_TYPES.every((type) => list.includes(type));
     try {
       await update.mutateAsync({
         metadata: {
@@ -91,8 +96,8 @@ export const CollectionSettings = ({ name }: { name: string }) => {
       });
       toast.success(
         unrestricted
-          ? "All file types allowed"
-          : `Restricted to ${list.length} type${list.length === 1 ? "" : "s"}`,
+          ? "Studio upload filter removed"
+          : `Studio uploads limited to ${list.length} type${list.length === 1 ? "" : "s"}`,
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");

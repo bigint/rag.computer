@@ -57,7 +57,7 @@ export const UsagePage = () => {
     <Page.Shell>
       <Page.Header
         className="mb-0"
-        description="Track request volume, indexed data, token usage, and estimated embedding spend by collection."
+        description="Track query activity, stored documents, and estimated document tokens and cost by collection."
         title="Usage"
       />
 
@@ -65,16 +65,18 @@ export const UsagePage = () => {
         <CardHeader className="border-b border-border bg-muted/35 p-4">
           <CardTitle>Usage and cost</CardTitle>
           <CardDescription>
-            Per-collection document, chunk, query, and embedding-cost totals. Cost is an estimate
-            from a local rate card; cross-check with your provider's dashboard for the source of
-            truth.
+            The query window applies to query counts, latency, and the timeline. Document totals
+            reflect currently stored data. Document tokens are estimated from text length; cost uses
+            a local model-name rate card. Unpriced models display $0. Check your provider's
+            dashboard for actual token usage and spend.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4">
           <div className="mb-4 flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">Window</span>
+            <span className="text-sm text-muted-foreground">Query window</span>
             <div className="w-40">
               <Select
+                aria-label="Query window"
                 options={[
                   { label: "Last 24h", value: "1" },
                   { label: "Last 7 days", value: "7" },
@@ -108,10 +110,10 @@ export const UsagePage = () => {
                 />
               </div>
               <div className="rounded-md border border-border bg-background p-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                   <h3 className="text-sm font-semibold">Query timeline</h3>
                   <span className="text-xs text-muted-foreground">
-                    ${data.embedding_cost_usd_estimate.toFixed(2)} estimated embeddings
+                    ${data.embedding_cost_usd_estimate.toFixed(2)} estimated stored-document cost
                   </span>
                 </div>
                 <div className="flex h-32 items-end gap-1">
@@ -143,8 +145,8 @@ export const UsagePage = () => {
                       <th className="px-3 py-2 text-right font-medium">Docs</th>
                       <th className="px-3 py-2 text-right font-medium">Chunks</th>
                       <th className="px-3 py-2 text-right font-medium">Storage</th>
-                      <th className="px-3 py-2 text-right font-medium">Tokens</th>
-                      <th className="px-3 py-2 text-right font-medium">Cost</th>
+                      <th className="px-3 py-2 text-right font-medium">Est. doc tokens</th>
+                      <th className="px-3 py-2 text-right font-medium">Est. doc cost</th>
                       <th className="px-3 py-2 text-right font-medium">Queries</th>
                       <th className="px-3 py-2 text-right font-medium">Avg latency</th>
                     </tr>

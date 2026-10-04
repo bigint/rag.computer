@@ -22,7 +22,8 @@ export const AllowedFileTypesCard = ({
   saving: boolean;
   onSave: () => void;
 }) => {
-  const allSelected = allowedTypes.size === ALL_FILE_TYPES.length;
+  const allSelected =
+    allowedTypes.size === ALL_FILE_TYPES.length && ALL_FILE_TYPES.every((t) => allowedTypes.has(t));
   const noneSelected = allowedTypes.size === 0;
 
   return (
@@ -30,7 +31,7 @@ export const AllowedFileTypesCard = ({
       <CardHeader>
         <CardTitle>Allowed file types</CardTitle>
         <CardDescription>
-          Restrict uploads by extension. Leave all selected to allow the default ingest set.
+          Filter Studio uploads by extension. Select all to remove the upload filter.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -66,8 +67,11 @@ export const AllowedFileTypesCard = ({
             );
           })}
         </div>
+        <p className="text-sm text-muted-foreground">
+          Select at least one file type, or choose Select all.
+        </p>
         <div>
-          <Button onClick={onSave} disabled={saving || !dirty}>
+          <Button onClick={onSave} disabled={saving || !dirty || noneSelected}>
             Save file types
           </Button>
         </div>

@@ -9,7 +9,7 @@ import { Callout } from "fumadocs-ui/components/callout";
 GET /v1/usage
 ```
 
-Accepts a session cookie or an API key with `audit:read`. Returns the per-collection resource footprint over a trailing window — useful for quota enforcement, billing, and capacity planning.
+Accepts a session cookie or an API key with `audit:read`. Returns the current per-collection document footprint and query activity over a trailing window.
 
 `GET /v1/status/usage` returns the same response shape for admin UI polling. Collection-pinned API keys cannot use the status variant because it aggregates across collections.
 
@@ -17,7 +17,7 @@ Accepts a session cookie or an API key with `audit:read`. Returns the per-collec
 
 | Parameter | Type | Default | Notes |
 |-----------|------|---------|-------|
-| `window_days` | integer | `30` | 1–365. Sliding window applied to `query_log`. Document totals are lifetime, not windowed. |
+| `window_days` | integer | `30` | 1–365. Applies only to query counts, average latency, and the query timeline. Document, chunk, storage, token, and cost totals reflect currently stored documents, regardless of the query window. |
 
 ## Response
 
@@ -54,10 +54,16 @@ Accepts a session cookie or an API key with `audit:read`. Returns the per-collec
 }
 ```
 
-Cost estimates use a fixed rate card (`text-embedding-3-small`, `text-embedding-3-large`, `text-embedding-ada-002`, Cohere `embed-*-v3.0` variants). Self-hosted `openai_compatible` endpoints and any model not in the rate card are reported as `0`.
+## Estimate Provenance
+
+`embedding_tokens` and `embedding_tokens_total` sum the stored document token estimates. Ingestion estimates each document as parsed-text character count divided by four, rounded down. These values are not provider-measured embedding tokens and do not account for chunk overlap, truncation, cache hits, retries, or query embeddings. They include stored documents across statuses and can decrease when documents are deleted; they are not historical usage.
+
+`embedding_cost_usd_estimate` multiplies those document token estimates by a fixed local rate card for `text-embedding-3-small`, `text-embedding-3-large`, `text-embedding-ada-002`, and Cohere `embed-*-v3.0` variants. The lookup uses the collection's model name, regardless of its provider or endpoint. An `openai_compatible` collection using a listed model name receives that model-name estimate. Models outside the rate card report `0`, which means unpriced rather than free or measured zero spend.
+
+The query window does not change document token or cost estimates. Use your provider's usage records for actual token consumption and spend.
 
 ## Common patterns
 
-- **Billing join:** map `by_collection[].collection` to your own `tenant_id ↔ collection_name` table and invoice. See [Multi-tenant SaaS](/docs/cookbook/multi-tenant-saas).
-- **Quota alert:** poll with `window_days=1` and alert when a tenant's `embedding_tokens` exceeds their plan.
+- **Stored-data quota alert:** compare document, chunk, or storage totals with your application's stored-data limits. These totals are not restricted by `window_days`.
+- **Query activity:** use `window_days=1` for recent query counts and latency; changing the window does not turn document estimates into daily token usage.
 - **Capacity planning:** pair with [`GET /v1/stats`](/docs/api-reference/health#platform-stats) for global health alongside this per-collection roll-up.

@@ -64,7 +64,11 @@ async def staged_rejection(
         item.file_size for item, _status, _error in context.rows if item.status != "failed"
     )
     max_session_bytes = limits["max_upload_session_size_mb"] * 1024 * 1024
-    existing_size = context.existing.file_size if context.existing is not None else 0
+    existing_size = (
+        context.existing.file_size
+        if context.existing is not None and context.existing.status != "failed"
+        else 0
+    )
     if uploaded_bytes - existing_size + staged.size > max_session_bytes:
         return await failure_response(
             db,

@@ -75,6 +75,12 @@ curl http://localhost:4000/v1/collections/research_papers/stats \
 
 Returns `document_count`, `total_chunks`, `total_tokens`, `total_size_bytes`, and per-status counts.
 
+## Studio Upload File Types
+
+The **Allowed file types** setting filters uploads selected in Studio by file extension. Select at least one type to save a filter, or choose **Select all** to remove it. **Clear all** clears the draft selection; saving stays disabled until you select a type.
+
+Studio stores the selection in `metadata.allowed_file_types`. An absent value or an empty array (`[]`) means unrestricted. A nonempty array filters Studio's file selection. This metadata is not a server upload policy: API and SDK uploads continue to use the server's supported-format and file-content validation.
+
 ## Default Query Settings
 
 Each collection can define default query settings that apply when not specified per-query:
