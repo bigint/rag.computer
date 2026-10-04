@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
+from contextlib import suppress
 from datetime import UTC, datetime
 
+import anyio
 from fastapi import Request
 
 from bigrag.db.engine import session_factory
@@ -87,28 +89,38 @@ async def stream_chat_completion(
 
         content_parts: list[str] = []
         stream = _stream_model(prepared).__aiter__()
+        pending_delta: asyncio.Task[str] | None = None
         try:
             while True:
                 if request is not None and await request.is_disconnected():
                     return
-                try:
-                    delta = await asyncio.wait_for(
-                        stream.__anext__(), timeout=_HEARTBEAT_INTERVAL_SECONDS
-                    )
-                except TimeoutError:
+                if pending_delta is None:
+                    pending_delta = asyncio.create_task(stream.__anext__())
+                completed, _ = await asyncio.wait(
+                    {pending_delta}, timeout=_HEARTBEAT_INTERVAL_SECONDS
+                )
+                if not completed:
                     yield _HEARTBEAT
                     continue
+                try:
+                    delta = pending_delta.result()
                 except StopAsyncIteration:
                     break
+                pending_delta = None
                 content_parts.append(delta)
                 yield _sse("delta", {"delta": delta})
         finally:
-            aclose = getattr(stream, "aclose", None)
-            if aclose is not None:
-                try:
-                    await aclose()
-                except Exception:
-                    pass
+            with anyio.CancelScope(shield=True):
+                if pending_delta is not None:
+                    pending_delta.cancel()
+                    with suppress(asyncio.CancelledError, Exception):
+                        await pending_delta
+                aclose = getattr(stream, "aclose", None)
+                if aclose is not None:
+                    try:
+                        await aclose()
+                    except Exception:
+                        pass
 
         assistant = _chat_message_response(
             id=str(uuid7()),

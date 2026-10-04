@@ -396,7 +396,9 @@ try {
 
 ## Retry Behavior
 
-- **Retried:** HTTP 500+, HTTP 429 from proxy/infrastructure layers, connection errors, timeouts
-- **Not retried:** HTTP 400, 401, 403, 404
+- **Retried:** HTTP 500+, HTTP 429 from proxy/infrastructure layers, and connection errors, only for reads or requests carrying an idempotency key
+- **Not retried:** Timeouts, cancellations, HTTP 400, 401, 403, 404, and mutations without an idempotency key
 - **Backoff:** `min(0.5 * 2^attempt, 4.0)` seconds
 - **Default retries:** 2 (configurable via `maxRetries`)
+
+With `autoIdempotencyKey: false` and no explicit key, mutations fail after the first connection error. An idempotency header does not guarantee server replay for multipart uploads, large request bodies, or one-time responses; check the operation's result before manually repeating a failed mutation.

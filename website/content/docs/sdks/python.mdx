@@ -417,11 +417,13 @@ except APITimeoutError:
 
 ## Retry Behavior
 
-The SDK automatically retries on:
+The SDK automatically retries reads and requests carrying an idempotency key on:
 
 - HTTP 429 from proxy or infrastructure layers
 - HTTP 5xx (server errors)
-- Connection errors and timeouts
+- Connection errors
+
+Timeouts are never retried automatically. With `auto_idempotency_key=False` and no explicit key, mutations fail after the first connection error. An idempotency header does not guarantee server replay for multipart uploads, large request bodies, or one-time responses; check the operation's result before manually repeating a failed mutation.
 
 Retries use exponential backoff: `min(0.5 * 2^attempt, 4)` seconds. Configure with `max_retries` (default: 2).
 

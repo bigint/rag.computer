@@ -47,6 +47,8 @@ The body may be either `{"data": {...}}` or a bare object — both are accepted.
 
 Sensitive paths such as `chat.openai_key` are Fernet-encrypted at rest when `BIGRAG_MASTER_KEY` is configured. Preference responses do not return the key; they return `chat.has_openai_key` instead.
 
+Saving `chat.openai_key` verifies it against the current instance chat provider and records its normalized destination with an authenticated signature derived from that key. The server owns this binding: incoming `chat.openai_key_base_url` and `chat.openai_key_base_url_signature` values are ignored, ordinary preference updates preserve the existing binding, and clearing the key removes both fields. Neither the binding nor the key is returned in preference responses. After changing `chat_base_url`, save a key for that endpoint again. Keys saved before authenticated destination binding was introduced also require saving again.
+
 <Callout type="info">
   There is no size validation beyond the standard request-body limit, but keep payloads small (&lt;64 KB) — this isn't a document store.
 </Callout>

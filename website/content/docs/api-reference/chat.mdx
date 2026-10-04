@@ -16,6 +16,7 @@ Accepts session auth and API-key auth. Scoped API keys can use chat when granted
 
 - Supported providers: `openai` and `openai_compatible`. Save the provider key in the admin UI at `chat.openai_key`.
 - API clients can also pass `provider_api_key` per request to bypass the saved key.
+- Saving a chat key binds it to the configured `chat_base_url` at that time. A saved key can only be used with that same normalized endpoint, including its path. To use another endpoint, save a key after configuring that endpoint or send `provider_api_key` explicitly. Existing saved keys without a destination binding must be saved again before use; bigRAG rejects them before calling the provider.
 - `BIGRAG_CHAT_API_KEY` is an instance-level fallback for the default OpenAI chat endpoint only. If `chat_base_url` or request `provider_base_url` points to a non-default OpenAI-compatible endpoint, a saved chat key or `provider_api_key` is required — the instance fallback key is rejected before any provider call.
 
 <Accordions type="multiple">
@@ -109,6 +110,8 @@ data: [DONE]
 ```
 
 If provider generation fails after streaming starts, the API emits an `error` event followed by `data: [DONE]`.
+
+While waiting for provider tokens, the API emits heartbeat comments every 15 seconds. Heartbeats keep the pending token read alive, and disconnecting the client cancels that read and closes the provider iterator.
 
 </Accordion>
 

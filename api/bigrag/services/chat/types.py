@@ -10,6 +10,7 @@ from bigrag.models.chat import ChatMessageResponse, ChatSource, ChatTimings
 class ProviderCredential:
     api_key: str
     source: str
+    base_url: str | None = None
 
 
 @dataclass

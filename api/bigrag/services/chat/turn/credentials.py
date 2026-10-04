@@ -12,6 +12,7 @@ from bigrag.models.chat import ChatCreateRequest
 from bigrag.services import crypto
 from bigrag.services.chat.types import ProviderCredential
 from bigrag.services.preferences import decrypt_preferences
+from bigrag.services.provider_key_binding import bound_chat_key_destination
 from bigrag.services.url_security import (
     UnsafeOutboundUrlError,
     normalize_url_root,
@@ -43,7 +44,12 @@ async def _resolve_api_credentials(
     )
     prefs = decrypt_preferences(dict(data)) if isinstance(data, dict) else {}
     chat = prefs.get("chat") if isinstance(prefs.get("chat"), dict) else {}
-    _append_credential(credentials, chat.get("openai_key"), "saved chat key")
+    _append_credential(
+        credentials,
+        chat.get("openai_key"),
+        "saved chat key",
+        base_url=bound_chat_key_destination(chat),
+    )
 
     if not credentials:
         env_key = os.environ.get("BIGRAG_CHAT_API_KEY")
@@ -61,6 +67,8 @@ def _append_credential(
     credentials: list[ProviderCredential],
     raw_api_key: object,
     source: str,
+    *,
+    base_url: str | None = None,
 ) -> None:
     if not isinstance(raw_api_key, str) or not raw_api_key.strip():
         return
@@ -70,7 +78,7 @@ def _append_credential(
         raise ServerError(msg, public_message=msg)
     if any(existing.api_key == api_key for existing in credentials):
         return
-    credentials.append(ProviderCredential(api_key=api_key, source=source))
+    credentials.append(ProviderCredential(api_key=api_key, source=source, base_url=base_url))
 
 
 async def _resolve_base_url(raw_base_url: str | None, default_base_url: str | None) -> str | None:
@@ -89,6 +97,25 @@ def assert_credentials_allowed_for_base_url(
     *,
     request_base_url: str | None,
 ) -> None:
+    for credential in credentials:
+        if credential.source != "saved chat key":
+            continue
+        if not credential.base_url:
+            raise ValidationError(
+                "Save the chat key again in Chat settings to bind it to the configured provider "
+                "URL."
+            )
+        try:
+            matches = normalize_url_root(credential.base_url) == normalize_url_root(
+                base_url or _DEFAULT_OPENAI_CHAT_BASE_URL
+            )
+        except (UnsafeOutboundUrlError, ValueError):
+            matches = False
+        if not matches:
+            raise ValidationError(
+                "The saved chat key belongs to a different provider URL. "
+                "Save a key for the configured provider, or pass provider_api_key with the request."
+            )
     has_instance_key = _has_instance_chat_key(credentials)
     if request_base_url is not None and has_instance_key:
         raise ValidationError(
@@ -125,6 +152,8 @@ async def _clear_saved_chat_key(session: AsyncSession, user: dict) -> None:
         return
     cleaned_chat = {**chat}
     cleaned_chat.pop("openai_key", None)
+    cleaned_chat.pop("openai_key_base_url", None)
+    cleaned_chat.pop("openai_key_base_url_signature", None)
     cleaned = {**data, "chat": cleaned_chat}
     await session.execute(
         sa.update(UserPreference)

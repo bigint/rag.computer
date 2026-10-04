@@ -121,13 +121,10 @@ class BigRAGCore:
             try:
                 response = await send_fn()
             except httpx.TimeoutException as exc:
-                last_error = exc
-                if attempt < self.max_retries:
-                    continue
                 raise APITimeoutError(str(exc)) from exc
             except httpx.HTTPError as exc:
                 last_error = exc
-                if attempt < self.max_retries:
+                if attempt < self.max_retries and safe_to_retry:
                     continue
                 raise APIConnectionError(str(exc)) from exc
 

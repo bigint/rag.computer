@@ -99,13 +99,14 @@ async def _stream_model(prepared: PreparedChatTurn) -> AsyncIterator[str]:
                 ),
                 timeout=_MODEL_TIMEOUT_SECONDS,
             )
-            async for chunk in stream:
-                choices = getattr(chunk, "choices", None) or []
-                if not choices:
-                    continue
-                delta = getattr(choices[0].delta, "content", None)
-                if delta:
-                    yield delta
+            async with stream:
+                async for chunk in stream:
+                    choices = getattr(chunk, "choices", None) or []
+                    if not choices:
+                        continue
+                    delta = getattr(choices[0].delta, "content", None)
+                    if delta:
+                        yield delta
             return
         except Exception as exc:
             last_error = exc

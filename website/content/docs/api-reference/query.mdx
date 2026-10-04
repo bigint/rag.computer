@@ -171,6 +171,8 @@ Response: `{"results": [...]}` — an array of query responses in the same order
 
 Rolling 24-hour, 7-day, and 30-day query statistics, cached for five minutes.
 
+On a cache miss, the period queries run sequentially within one database session, avoiding concurrent use of that session.
+
 **Response** `200`:
 
 ```json

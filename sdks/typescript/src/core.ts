@@ -125,10 +125,9 @@ export class BigRAGCore implements RequestClient {
         lastError = err instanceof Error ? err : new Error(String(err));
         if (opts?.signal?.aborted) throw lastError;
         if (lastError.name === "TimeoutError" || lastError.name === "AbortError") {
-          if (attempt < this.maxRetries) continue;
           throw new APITimeoutError(lastError.message);
         }
-        if (attempt < this.maxRetries) continue;
+        if (attempt < this.maxRetries && safeToRetry) continue;
         throw new APIConnectionError(lastError.message);
       }
 

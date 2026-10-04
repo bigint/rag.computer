@@ -53,7 +53,7 @@ async def update_preferences(
     )
     existing = dict(existing_row.data) if existing_row else {}
     incoming = _normalize_sensitive(incoming)
-    await _validate_sensitive(incoming)
+    incoming = await _validate_sensitive(incoming)
     incoming = _encrypt_sensitive(incoming)
     merged = _remove_cleared_sensitive(_deep_merge(existing, incoming), incoming)
 

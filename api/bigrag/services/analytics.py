@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-
 import sqlalchemy as sa
 
 from bigrag.db.engine import session_factory
@@ -49,11 +47,9 @@ async def collection_analytics(collection_name: str) -> dict:
             )
         ).all()
 
-        stats_24h, stats_7d, stats_30d = await asyncio.gather(
-            _period_stats(session, collection_name, 1),
-            _period_stats(session, collection_name, 7),
-            _period_stats(session, collection_name, 30),
-        )
+        stats_24h = await _period_stats(session, collection_name, 1)
+        stats_7d = await _period_stats(session, collection_name, 7)
+        stats_30d = await _period_stats(session, collection_name, 30)
 
     result = {
         "collection": collection_name,
