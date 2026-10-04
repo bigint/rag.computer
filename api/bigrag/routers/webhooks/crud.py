@@ -142,7 +142,7 @@ async def update_webhook(
     if body.events is not None:
         wh.events = body.events
         fields.append("events")
-    if body.collections is not None:
+    if "collections" in body.model_fields_set:
         wh.collections = body.collections
         fields.append("collections")
     if body.active is not None:

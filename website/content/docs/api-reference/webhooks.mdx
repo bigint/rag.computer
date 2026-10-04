@@ -66,6 +66,14 @@ Returns the full webhook object.
 
 Updatable fields: `url`, `events`, `collections`, `active`.
 
+Omit `collections` to keep the current collection filter. Send a list of collection names to replace it, or explicitly send `null` to remove the filter and receive subscribed events from all collections. Removing the collection filter does not change the webhook URL, subscribed event types or active state.
+
+```json
+{
+  "collections": null
+}
+```
+
 </Accordion>
 
 <Accordion title="DELETE /v1/admin/webhooks/{id} — Delete webhook">
