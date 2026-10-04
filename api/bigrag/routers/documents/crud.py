@@ -59,12 +59,6 @@ async def upload_document(
     upload_limits = await get_values(["max_upload_size_mb"])
     max_upload_size_mb = upload_limits["max_upload_size_mb"]
     max_size = max_upload_size_mb * 1024 * 1024
-    content_length = request.headers.get("content-length")
-    if content_length and int(content_length) > max_size:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File too large. Max size: {max_upload_size_mb}MB",
-        )
 
     tmp_path, content_hash, file_size = await validated_upload_to_temp(
         file, file_ext, max_size=max_size

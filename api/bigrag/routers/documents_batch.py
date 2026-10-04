@@ -121,12 +121,6 @@ async def batch_upload_documents(
     max_batch_upload_size_mb = upload_limits["max_batch_upload_size_mb"]
     max_size = max_upload_size_mb * 1024 * 1024
     batch_max_size = max_batch_upload_size_mb * 1024 * 1024
-    content_length = request.headers.get("content-length")
-    if content_length and int(content_length) > batch_max_size:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Batch upload too large. Max size: {max_batch_upload_size_mb}MB",
-        )
     budget = UploadBudget(batch_max_size)
     shared_meta = metadata_or_400(
         collection,

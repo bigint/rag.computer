@@ -37,6 +37,8 @@ curl -X POST http://localhost:4000/v1/collections/research/documents \
 
 **Max file size:** 64 MB by default (configurable via `BIGRAG_MAX_UPLOAD_SIZE_MB`)
 
+The `max_upload_size_mb` limit counts the file's bytes, using 1 MB = 1,048,576 bytes. Multipart boundaries, part headers, and metadata do not count toward it. A file exactly at the limit passes the size check; a larger file returns `413`. File-content and metadata validation still apply.
+
 **Response** `201`:
 
 ```json
@@ -219,6 +221,8 @@ GET /v1/documents/{document_id}/chunks
 <Accordion title="POST /v1/collections/{collection_name}/documents/batch/upload — Batch upload">
 
 Upload up to 100 files in one request. Each file goes through the same extension sniffing, metadata-schema validation, and `content_hash` deduplication pipeline as the single-file upload endpoint.
+
+Each file must fit `max_upload_size_mb` (64 MB by default), and the sum of file bytes in the request must fit `max_batch_upload_size_mb` (128 MB by default). Both limits use 1 MB = 1,048,576 bytes and exclude multipart framing and metadata. Equality passes the size check; exceeding either limit returns `413`.
 
 ```bash
 curl -X POST http://localhost:4000/v1/collections/docs/documents/batch/upload \
