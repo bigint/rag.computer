@@ -1,5 +1,4 @@
 import { Menu } from "@base-ui/react/menu";
-import { useNavigate } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
 import { ThemeControl } from "@/features/theme/theme-control";
 import { useLogout, useSession } from "@/hooks/use-auth";
@@ -14,7 +13,6 @@ const initials = (name: string, email: string) => {
 };
 
 export const UserMenu = () => {
-  const navigate = useNavigate();
   const { data } = useSession();
   const logout = useLogout();
   const user = data?.user;
@@ -23,7 +21,6 @@ export const UserMenu = () => {
 
   const onSignOut = async () => {
     await logout.mutateAsync();
-    navigate({ to: "/login", replace: true });
   };
 
   return (

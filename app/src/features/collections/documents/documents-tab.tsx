@@ -22,7 +22,7 @@ import {
 } from "@/features/collections/documents/upload-session-status-cards";
 import { useDocumentUpload } from "@/features/collections/documents/use-document-upload";
 import { useDocumentsTabState } from "@/features/collections/documents/use-documents-tab-state";
-import { useUploadSessionStore } from "@/features/collections/upload-session-store";
+import { useActiveUploadSession } from "@/features/collections/use-active-upload-session";
 import { WorkerOfflineBanner } from "@/features/workers/worker-status-banner";
 import { useCollection } from "@/hooks/use-collections";
 import {
@@ -44,9 +44,8 @@ type DocumentsTabProps = {
 
 export const DocumentsTab = ({ filters, name, onFiltersChange }: DocumentsTabProps) => {
   const activeFilters = filters ?? defaultDocumentsTabFilters;
-  const activeSessionId = useUploadSessionStore((state) => state.activeSessionIds[name] ?? null);
-  const clearActiveSessionId = useUploadSessionStore((state) => state.clearActiveSessionId);
-  const setActiveSessionId = useUploadSessionStore((state) => state.setActiveSessionId);
+  const { activeSessionId, clearActiveSessionId, setActiveSessionId } =
+    useActiveUploadSession(name);
 
   const { data: collection } = useCollection(name);
   const documentFilters: DocumentListFilters = {

@@ -276,6 +276,7 @@ async def whoami(user: dict = Depends(get_current_user)) -> WhoamiResponse:
 async def change_password(
     body: ChangePasswordRequest,
     request: Request,
+    response: Response,
     user: dict = Depends(require_session),
     session: AsyncSession = Depends(get_session),
 ) -> StatusResponse:
@@ -289,6 +290,7 @@ async def change_password(
     await session.execute(sa.delete(UserSession).where(UserSession.user_id == target.id))
     await session.commit()
     await invalidate_auth_principals()
+    await clear_session_cookie(response)
     audit.record(
         request,
         user=user,

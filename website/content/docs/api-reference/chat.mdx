@@ -111,6 +111,8 @@ data: [DONE]
 
 If provider generation fails after streaming starts, the API emits an `error` event followed by `data: [DONE]`.
 
+The admin UI requires a terminal `done`, `error`, or `[DONE]` frame. An earlier connection close keeps any partial answer visible and marks it interrupted so you can retry. Stopping a response, clearing chat, changing collection, or signing out cancels the active browser stream; a late callback cannot change a newer response.
+
 While waiting for provider tokens, the API emits heartbeat comments every 15 seconds. Heartbeats keep the pending token read alive, and disconnecting the client cancels that read and closes the provider iterator.
 
 </Accordion>

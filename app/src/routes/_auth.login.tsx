@@ -39,7 +39,7 @@ const safeReturnPath = (value: unknown) => {
 const LoginPage = () => {
   const navigate = useNavigate();
   const { from } = Route.useSearch();
-  const login = useLogin();
+  const login = useLogin(() => navigate({ to: from ?? "/", replace: true }));
   const setup = useInstanceSetupStatus();
   const form = useForm({
     defaultValues: defaultLoginFormValues(),
@@ -49,7 +49,6 @@ const LoginPage = () => {
     onSubmit: async ({ value }) => {
       try {
         await login.mutateAsync(loginBodyFromValues(value));
-        navigate({ to: from ?? "/", replace: true });
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Login failed");
       }

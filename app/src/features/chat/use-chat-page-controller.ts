@@ -32,29 +32,17 @@ export const useChatPageController = () => {
   const generateQuestions = useGenerateChatQuestions();
   const { data: collectionsData, isPending: collectionsLoading } = useCollections();
   const collections = useMemo(() => collectionsData?.collections ?? [], [collectionsData]);
-  const {
-    appendMessages,
-    clearMessages,
-    collection,
-    isStreaming,
-    messages,
-    selectCollection,
-    setMessages,
-    setStreaming,
-    updateMessage,
-  } = useChatStore(
-    useShallow((state) => ({
-      appendMessages: state.appendMessages,
-      clearMessages: state.clearMessages,
-      collection: state.collection,
-      isStreaming: state.isStreaming,
-      messages: state.messages,
-      selectCollection: state.selectCollection,
-      setMessages: state.setMessages,
-      setStreaming: state.setStreaming,
-      updateMessage: state.updateMessage,
-    })),
-  );
+  const { clearMessages, collection, isStreaming, messages, selectCollection, setMessages } =
+    useChatStore(
+      useShallow((state) => ({
+        clearMessages: state.clearMessages,
+        collection: state.collection,
+        isStreaming: state.isStreaming,
+        messages: state.messages,
+        selectCollection: state.selectCollection,
+        setMessages: state.setMessages,
+      })),
+    );
 
   useSelectAvailableCollection(collections, collection, selectCollection);
 
@@ -106,12 +94,8 @@ export const useChatPageController = () => {
 
   const questionsQuery = useChatQuestionSuggestions(collection);
   const { handleSend, stopStreaming } = useChatStreaming({
-    appendMessages,
     collection,
-    isStreaming,
-    setStreaming,
     state,
-    updateMessage,
   });
 
   const handleCollectionChange = useCallback(
@@ -137,11 +121,12 @@ export const useChatPageController = () => {
 
   const resendFrom = useCallback(
     (messageIndex: number, content: string) => {
+      stopStreaming();
       const currentMessages = useChatStore.getState().messages;
       setMessages(currentMessages.slice(0, messageIndex));
       void handleSend(content);
     },
-    [handleSend, setMessages],
+    [handleSend, setMessages, stopStreaming],
   );
 
   const handleEditUserMessage = useCallback(

@@ -136,7 +136,7 @@ If a key is pinned to a single `collection`, that pin is enforced even on the gl
 
 - Argon2id hashed at rest
 - Minimum 8 characters (enforced on `/setup`, user create, and password change)
-- Changing a password revokes every existing session for that user
+- Changing a password revokes every existing session for that user and clears the browser session cookie. The admin UI returns to sign-in after a successful password change.
 
 ## Error responses
 

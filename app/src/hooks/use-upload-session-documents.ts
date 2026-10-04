@@ -5,6 +5,7 @@ import { apiClient } from "@/lib/api";
 import { runWithConcurrency } from "@/lib/concurrency";
 import { errorToast } from "@/lib/mutation-toast";
 import { queryKeys } from "@/lib/query-keys";
+import { isCurrentSession, sessionSignal } from "@/lib/session-state";
 import type { UploadSession, UploadSessionFileResponse } from "@/types/bigrag";
 
 const uploadConcurrency = 4;
@@ -51,6 +52,8 @@ export const useUploadSessionDocuments = (
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (files: File[]) => {
+      const signal = sessionSignal(qc);
+      signal.throwIfAborted();
       const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
       const session = await apiClient.post<UploadSession>(
         `v1/collections/${encodeURIComponent(collection)}/upload-sessions`,
@@ -59,10 +62,13 @@ export const useUploadSessionDocuments = (
           total_bytes: totalBytes,
           metadata: {},
         },
+        { signal },
       );
+      signal.throwIfAborted();
       options?.onSessionStart?.(session);
       const errors: { filename: string; error: string }[] = [];
       await runWithConcurrency(files, uploadConcurrency, async (file, index) => {
+        signal.throwIfAborted();
         const form = new FormData();
         form.append("client_item_id", uploadSessionClientId(file, index));
         form.append("file", file, uploadSessionFileName(file));
@@ -70,22 +76,27 @@ export const useUploadSessionDocuments = (
           await apiClient.postForm<UploadSessionFileResponse>(
             `v1/collections/${encodeURIComponent(collection)}/upload-sessions/${session.id}/files`,
             form,
+            { signal },
           );
         } catch (err) {
+          signal.throwIfAborted();
           errors.push({
             filename: uploadSessionFileName(file),
             error: err instanceof Error ? err.message : "Upload failed",
           });
         }
       });
+      signal.throwIfAborted();
       const sessionPath = `v1/collections/${encodeURIComponent(collection)}/upload-sessions/${session.id}`;
       const finalSession =
         errors.length < files.length
-          ? await apiClient.post<UploadSession>(`${sessionPath}/complete`)
-          : await apiClient.get<UploadSession>(sessionPath);
+          ? await apiClient.post<UploadSession>(`${sessionPath}/complete`, undefined, { signal })
+          : await apiClient.get<UploadSession>(sessionPath, { signal });
+      signal.throwIfAborted();
       return { errors, session: finalSession };
     },
     onSuccess: ({ errors, session }) => {
+      if (!isCurrentSession(qc)) return;
       qc.invalidateQueries({ queryKey: queryKeys.documents.lists() });
       qc.invalidateQueries({
         queryKey: queryKeys.documents.uploadSession({ collection, id: session.id }),
@@ -98,7 +109,9 @@ export const useUploadSessionDocuments = (
         );
       }
     },
-    onError: errorToast("Upload session failed"),
+    onError: (error) => {
+      if (isCurrentSession(qc)) errorToast("Upload session failed")(error);
+    },
   });
 };
 

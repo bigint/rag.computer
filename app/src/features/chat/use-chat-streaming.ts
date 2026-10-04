@@ -5,50 +5,39 @@ import type { ChatState } from "@/features/chat/chat-input";
 import type { ChatMessage } from "@/features/chat/chat-messages";
 import { createChatMessageId } from "@/features/chat/chat-page-defaults";
 import { normalizeTimings, timingsFromRetrieval } from "@/features/chat/chat-page-timings";
-import type { useChatStore } from "@/features/chat/chat-store";
+import { useChatStore } from "@/features/chat/chat-store";
 import { streamChat } from "@/lib/chat-stream";
 import { queryKeys } from "@/lib/query-keys";
 
-type ChatStoreState = ReturnType<typeof useChatStore.getState>;
-
 type ChatStreamingOptions = {
-  appendMessages: ChatStoreState["appendMessages"];
   collection: string;
-  isStreaming: boolean;
-  setStreaming: ChatStoreState["setStreaming"];
   state: ChatState;
-  updateMessage: ChatStoreState["updateMessage"];
 };
 
-export const useChatStreaming = ({
-  appendMessages,
-  collection,
-  isStreaming,
-  setStreaming,
-  state,
-  updateMessage,
-}: ChatStreamingOptions) => {
+export const useChatStreaming = ({ collection, state }: ChatStreamingOptions) => {
   const queryClient = useQueryClient();
   const abortRef = useRef<AbortController | null>(null);
+  const flushRef = useRef<(() => void) | null>(null);
+  const { startStream, finishStream, stopStream, updateMessage } = useChatStore.getState();
 
   useEffect(
     () => () => {
-      abortRef.current?.abort();
+      flushRef.current?.();
+      if (abortRef.current) stopStream(abortRef.current);
       abortRef.current = null;
-      setStreaming(false);
     },
-    [setStreaming],
+    [stopStream],
   );
 
   const stopStreaming = useCallback(() => {
-    abortRef.current?.abort();
+    flushRef.current?.();
+    if (abortRef.current) stopStream(abortRef.current);
     abortRef.current = null;
-    setStreaming(false);
-  }, [setStreaming]);
+  }, [stopStream]);
 
   const handleSend = useCallback(
     async (text: string) => {
-      if (isStreaming) return;
+      if (useChatStore.getState().activeStream) return;
       if (!state.hasOpenAIKey) {
         toast.error("Add your OpenAI API key first");
         return;
@@ -63,15 +52,19 @@ export const useChatStreaming = ({
       let currentAssistantId = assistantId;
       const userMsg: ChatMessage = { id: userId, role: "user", content: text };
       const assistantMsg: ChatMessage = { id: assistantId, role: "assistant", content: "" };
-      appendMessages([userMsg, assistantMsg]);
-      setStreaming(true);
-
-      const controller = new AbortController();
+      const controller = startStream(collection, [userMsg, assistantMsg]);
+      if (!controller) return;
       abortRef.current = controller;
+      const ownsStream = () => useChatStore.getState().activeStream === controller;
       let deltaBuffer = "";
       let deltaFrame: number | null = null;
       const flushDelta = () => {
+        if (deltaFrame !== null) window.cancelAnimationFrame(deltaFrame);
         deltaFrame = null;
+        if (!ownsStream()) {
+          deltaBuffer = "";
+          return;
+        }
         if (!deltaBuffer) return;
         const delta = deltaBuffer;
         deltaBuffer = "";
@@ -80,6 +73,7 @@ export const useChatStreaming = ({
           content: message.content + delta,
         }));
       };
+      flushRef.current = flushDelta;
       const enqueueDelta = (delta: string) => {
         deltaBuffer += delta;
         if (deltaFrame === null) {
@@ -108,6 +102,7 @@ export const useChatStreaming = ({
             system_prompt: state.systemPrompt,
           },
           onEvent: (event) => {
+            if (!ownsStream()) return;
             if (event.event === "sources") {
               updateMessage(currentAssistantId, (message) => ({
                 ...message,
@@ -152,7 +147,15 @@ export const useChatStreaming = ({
             }
           },
         });
+        if (ownsStream()) {
+          flushDelta();
+          updateMessage(currentAssistantId, (message) => ({
+            ...message,
+            status: message.status ?? "complete",
+          }));
+        }
       } catch (err) {
+        if (!ownsStream()) return;
         if (err instanceof DOMException && err.name === "AbortError") {
           flushDelta();
           updateMessage(currentAssistantId, (chatMessage) => ({
@@ -175,16 +178,18 @@ export const useChatStreaming = ({
           window.cancelAnimationFrame(deltaFrame);
           flushDelta();
         }
-        setStreaming(false);
-        abortRef.current = null;
+        finishStream(controller);
+        if (abortRef.current === controller) {
+          abortRef.current = null;
+          flushRef.current = null;
+        }
       }
     },
     [
-      appendMessages,
       collection,
-      isStreaming,
       queryClient,
-      setStreaming,
+      finishStream,
+      startStream,
       state.hasOpenAIKey,
       state.model,
       state.multimodal,

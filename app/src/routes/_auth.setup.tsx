@@ -23,7 +23,10 @@ export const Route = createFileRoute("/_auth/setup")({
 
 const SetupPage = () => {
   const navigate = useNavigate();
-  const setup = useSetup();
+  const setup = useSetup(() => {
+    toast.success("Admin account created");
+    navigate({ to: "/onboarding", replace: true });
+  });
   const instanceSetup = useInstanceSetupStatus();
   const form = useForm({
     defaultValues: defaultSetupFormValues(),
@@ -33,8 +36,6 @@ const SetupPage = () => {
     onSubmit: async ({ value }) => {
       try {
         await setup.mutateAsync(setupBodyFromValues(value));
-        toast.success("Admin account created");
-        navigate({ to: "/onboarding", replace: true });
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Setup failed");
       }

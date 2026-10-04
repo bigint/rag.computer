@@ -5,11 +5,13 @@ type ChatStoreState = {
   collection: string;
   isStreaming: boolean;
   messages: ChatMessage[];
-  appendMessages: (messages: ChatMessage[]) => void;
+  activeStream: AbortController | null;
   clearMessages: () => void;
+  reset: () => void;
   selectCollection: (collection: string) => void;
-  selectFirstCollection: (collections: readonly { name: string }[]) => void;
-  setStreaming: (isStreaming: boolean) => void;
+  startStream: (collection: string, messages: ChatMessage[]) => AbortController | null;
+  finishStream: (controller: AbortController) => void;
+  stopStream: (controller?: AbortController) => void;
   setMessages: (messages: ChatMessage[]) => void;
   updateMessage: (id: string, update: (message: ChatMessage) => ChatMessage) => void;
 };
@@ -18,33 +20,51 @@ const initialState = {
   collection: "",
   isStreaming: false,
   messages: [],
-} satisfies Pick<ChatStoreState, "collection" | "isStreaming" | "messages">;
+  activeStream: null,
+} satisfies Pick<ChatStoreState, "collection" | "isStreaming" | "messages" | "activeStream">;
 
-export const useChatStore = create<ChatStoreState>()((set) => ({
+export const useChatStore = create<ChatStoreState>()((set, get) => ({
   ...initialState,
-  appendMessages: (messages) =>
-    set((state) => ({
-      messages: [...state.messages, ...messages],
-    })),
-  clearMessages: () =>
+  clearMessages: () => {
+    get().activeStream?.abort();
+    set({ activeStream: null, isStreaming: false, messages: [] });
+  },
+  reset: () => {
+    get().activeStream?.abort();
+    set(initialState);
+  },
+  selectCollection: (collection) => {
+    if (get().collection === collection) return;
+    get().activeStream?.abort();
+    set({ collection, activeStream: null, isStreaming: false, messages: [] });
+  },
+  startStream: (collection, messages) => {
+    const state = get();
+    if (state.activeStream || state.collection !== collection) return null;
+    const controller = new AbortController();
     set({
-      isStreaming: false,
-      messages: [],
-    }),
-  selectCollection: (collection) =>
-    set((state) => ({
-      collection,
-      messages: state.collection === collection ? state.messages : [],
-      isStreaming: false,
-    })),
-  selectFirstCollection: (collections) =>
-    set((state) => {
-      const first = collections[0];
-      if (state.collection || !first) return state;
-      return { collection: first.name };
-    }),
+      activeStream: controller,
+      isStreaming: true,
+      messages: [...state.messages, ...messages],
+    });
+    return controller;
+  },
+  finishStream: (controller) => {
+    if (get().activeStream !== controller) return;
+    set({ activeStream: null, isStreaming: false });
+  },
+  stopStream: (controller) => {
+    const state = get();
+    if (!state.activeStream || (controller && state.activeStream !== controller)) return;
+    state.activeStream.abort();
+    const messages = state.messages.map((message, index) =>
+      index === state.messages.length - 1 && message.role === "assistant" && !message.status
+        ? { ...message, status: "stopped" as const }
+        : message,
+    );
+    set({ activeStream: null, isStreaming: false, messages });
+  },
   setMessages: (messages) => set({ messages }),
-  setStreaming: (isStreaming) => set({ isStreaming }),
   updateMessage: (id, update) =>
     set((state) => {
       const index = state.messages.findIndex((message) => message.id === id);

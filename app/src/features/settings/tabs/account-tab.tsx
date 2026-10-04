@@ -1,5 +1,4 @@
 import { useForm, useStore } from "@tanstack/react-form";
-import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,6 @@ import { AccountActiveSessionsSection } from "@/features/settings/tabs/account-a
 import { AccountProfileSection } from "@/features/settings/tabs/account-profile-section";
 import {
   useChangePassword,
-  useLogout,
   useLogoutAll,
   useSession,
   useUpdateCurrentUserProfile,
@@ -27,11 +25,9 @@ import {
 import { errorText, firstString, submitWith } from "@/lib/form";
 
 export const AccountTab = () => {
-  const navigate = useNavigate();
   const { data: session } = useSession();
   const updateProfile = useUpdateCurrentUserProfile();
   const changePassword = useChangePassword();
-  const logout = useLogout();
   const logoutAll = useLogoutAll();
   const [profileValues, setProfileValues] = useState(defaultProfileFormValues);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -44,9 +40,6 @@ export const AccountTab = () => {
     onSubmit: async ({ value }) => {
       try {
         await changePassword.mutateAsync(passwordBodyFromValues(value));
-        toast.success("Password updated");
-        await logout.mutateAsync();
-        navigate({ to: "/login", replace: true });
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed");
       }
@@ -97,7 +90,6 @@ export const AccountTab = () => {
     try {
       await logoutAll.mutateAsync();
       setSignOutAllOpen(false);
-      navigate({ to: "/login", replace: true });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed");
     }

@@ -12,7 +12,6 @@ import { type MutableRefObject, memo, useCallback, useEffect, useRef, useState }
 import { type ChatMessage, formatWholeMs } from "@/features/chat/chat-message-types";
 import { MarkdownContent } from "@/features/chat/markdown/cited-markdown";
 import { SourcesPanel } from "@/features/chat/sources-panel";
-import { cn } from "@/lib/cn";
 
 const useHighlightTimerCleanup = (highlightTimer: MutableRefObject<number | null>) => {
   useEffect(
@@ -131,27 +130,24 @@ export const AssistantMessage = memo(
             </div>
           </div>
 
-          <div
-            className={cn(
-              "text-[15px] leading-7 text-foreground",
-              hasError &&
-                "whitespace-pre-wrap rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm leading-6",
-            )}
-          >
-            {hasError ? (
-              <span className="inline-flex gap-2 text-destructive">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                <span>{message.errorMessage}</span>
-              </span>
-            ) : message.content ? (
+          {hasError && (
+            <div className="mb-3 flex gap-2 whitespace-pre-wrap rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm leading-6 text-destructive">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              <span>{message.errorMessage}</span>
+            </div>
+          )}
+          <div className="text-[15px] leading-7 text-foreground">
+            {message.content ? (
               <MarkdownContent
                 chunkCount={sourceCount}
                 content={message.content}
                 onCite={jumpToSource}
               />
-            ) : (
+            ) : hasError ? null : (
               <span className="text-muted-foreground">
-                Retrieving context and drafting answer...
+                {message.status === "stopped"
+                  ? "Response stopped."
+                  : "Retrieving context and drafting answer..."}
               </span>
             )}
             {isStreaming && (

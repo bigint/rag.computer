@@ -116,3 +116,9 @@ See [Production](/docs/deployment/production) for the full hardening checklist.
 <Callout type="warn">
 Anything holding an API key — CI runner, laptop, container image layer — can act as that key until you revoke it. Mint a key per service, set `expires_at`, and rotate on any suspicion.
 </Callout>
+
+## Browser session cleanup
+
+Signing out, signing out all devices, or successfully changing a password clears cached account data, chat messages, and local upload tracking. Confirmed session expiry or an account change from `/v1/auth/me` performs the same cleanup. The admin UI refreshes this check on focus, reconnect, and once per minute while the tab is active. Late responses from the previous session stay in its retired cache.
+
+Upload tracking is bound to the signed-in account. Reloading the UI as the same account retains its upload-session IDs; switching accounts clears them. Older tracking entries without an account binding are discarded. Sign-out also aborts pending browser upload requests. Work already accepted by the API can continue; this does not cancel the server's ingestion job.

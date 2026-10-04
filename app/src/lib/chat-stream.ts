@@ -48,45 +48,52 @@ export const streamChat = async (opts: StreamOptions): Promise<void> => {
   let buffer = "";
   let finished = false;
 
+  const dispatchFrame = (frame: string) => {
+    const parsed = parseFrame(frame);
+    if (!parsed) return;
+    if ("done" in parsed) {
+      finished = true;
+      return;
+    }
+    opts.onEvent(parsed.event);
+    finished = parsed.event.event === "done" || parsed.event.event === "error";
+  };
+
   try {
     while (!finished) {
+      opts.signal?.throwIfAborted();
       const { value, done } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
-
-      const frames = buffer.split("\n\n");
+      const frames = buffer.split(/\r?\n\r?\n/);
       buffer = frames.pop() ?? "";
-
       for (const frame of frames) {
-        const parsed = parseFrame(frame);
-        if (!parsed) continue;
-        if ("done" in parsed) {
-          finished = true;
-          continue;
-        }
-        opts.onEvent(parsed.event);
+        dispatchFrame(frame);
+        if (finished) break;
       }
     }
+    opts.signal?.throwIfAborted();
     buffer += decoder.decode();
-    if (!finished && buffer.trim()) {
-      const parsed = parseFrame(buffer);
-      if (parsed && !("done" in parsed)) {
-        opts.onEvent(parsed.event);
-      }
-    }
+    if (!finished && buffer.trim()) dispatchFrame(buffer);
+    if (!finished) throw new ChatStreamError("Chat stream interrupted. Please retry.");
   } finally {
-    reader.releaseLock();
+    try {
+      await reader.cancel();
+    } catch {
+    } finally {
+      reader.releaseLock();
+    }
   }
 };
 
 const parseFrame = (frame: string): { done: true } | { event: ChatStreamEvent } | null => {
   let eventName = "message";
   const data: string[] = [];
-  for (const line of frame.split("\n")) {
-    if (line.startsWith("event: ")) {
-      eventName = line.slice(7).trim();
-    } else if (line.startsWith("data: ")) {
-      data.push(line.slice(6));
+  for (const line of frame.split(/\r?\n/)) {
+    if (line.startsWith("event:")) {
+      eventName = line.slice(6).trim();
+    } else if (line.startsWith("data:")) {
+      data.push(line.slice(5).replace(/^ /, ""));
     }
   }
   const payload = data.join("\n");
