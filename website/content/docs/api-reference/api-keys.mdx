@@ -101,6 +101,8 @@ PATCH /v1/admin/api-keys/{key_id}
 
 Any combination of `name`, `active`, `expires_at`, `scopes`, and `collection` is permitted. Updating `scopes` to `[]` stores `["*:*"]` for full access. Deactivating (`active: false`) is the non-destructive way to freeze a leaked key while you investigate; the audit log still references it.
 
+Omitting `expires_at` preserves the current expiration. An RFC3339 timestamp replaces it; explicit `null` removes expiration. Removing expiration from an active expired key restores its expiration eligibility. This does not reactivate an inactive key or change its scopes, collection pin, or secret.
+
 **Response** `200`: updated key (without `key`).
 
 </Accordion>

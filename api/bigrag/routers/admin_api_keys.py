@@ -166,7 +166,7 @@ async def update_api_key(
     if body.active is not None:
         key.active = body.active
         fields.append("active")
-    if body.expires_at is not None:
+    if "expires_at" in body.model_fields_set:
         key.expires_at = body.expires_at
         fields.append("expires_at")
     existing = dict(key.permissions or {})
