@@ -35,6 +35,7 @@ class Collection(TypedDict):
 class CollectionListResponse(TypedDict):
     collections: list[Collection]
     total: int | None
+    next_cursor: NotRequired[str | None]
 
 
 class CollectionStatsResponse(TypedDict):

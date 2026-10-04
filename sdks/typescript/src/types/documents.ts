@@ -29,6 +29,7 @@ export interface Document {
 export interface DocumentListResponse {
   documents: Document[];
   total: number | null;
+  next_cursor?: string | null;
 }
 
 export interface DocumentListOptions {
@@ -38,6 +39,7 @@ export interface DocumentListOptions {
   status?: string;
   limit?: number;
   offset?: number;
+  cursor?: string;
   include_total?: boolean;
 }
 

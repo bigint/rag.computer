@@ -75,7 +75,7 @@ The client follows a Stripe-style **resource namespace** layout: `client.collect
 ## Collections
 
 ```typescript
-client.collections.list({ name?, limit?, offset? })
+client.collections.list({ name?, limit?, offset?, cursor?, include_total? })
 client.collections.listAll({ name?, limit? })  // AsyncGenerator that pages through every collection
 client.collections.create({
   name,
@@ -112,12 +112,25 @@ client.collections.analytics(name)
   For update calls, send `embedding_api_key: null` or `reranking_api_key: null` to clear the stored key.
 </Callout>
 
+Collection list responses expose optional `next_cursor`. Pass a returned token to `list` with the same name filter and page size; `null` or a missing token ends pagination. Set `include_total: true` to request a count; otherwise `total` is null. Treat cursor tokens as opaque. The existing `listAll` iterator continues to use offsets and does not accept a cursor.
+
+```typescript
+const page = await client.collections.list({ name: "research", limit: 20 });
+if (page.next_cursor) {
+  const next = await client.collections.list({
+    name: "research",
+    limit: 20,
+    cursor: page.next_cursor,
+  });
+}
+```
+
 ## Documents
 
 ```typescript
 client.documents.upload(collection, file, metadata?)
 client.documents.batchUpload(collection, files, metadata?)
-client.documents.list(collection, { q?, status?, sort?, order?, limit?, offset? })
+client.documents.list(collection, { q?, status?, sort?, order?, limit?, offset?, cursor?, include_total? })
 client.documents.listAll(collection, { q?, status?, sort?, order?, limit? })  // AsyncGenerator
 client.documents.get(collection, documentId)
 client.documents.delete(collection, documentId)
@@ -126,6 +139,26 @@ client.documents.getElements(collection, documentId, { limit?, offset? }?)
 ```
 
 File uploads accept `File`, `Blob`, `Buffer`, `Uint8Array`, or `{ path: string; name?: string }`.
+
+Document list responses also expose optional `next_cursor`. Continue with the same collection, filters, `sort: "created_at"`, order and page size. The API rejects a nonempty cursor with another sort. `listAll` retains offset pagination.
+
+```typescript
+const page = await client.documents.list("docs", {
+  status: "ready",
+  sort: "created_at",
+  order: "desc",
+  limit: 20,
+});
+if (page.next_cursor) {
+  const next = await client.documents.list("docs", {
+    status: "ready",
+    sort: "created_at",
+    order: "desc",
+    limit: 20,
+    cursor: page.next_cursor,
+  });
+}
+```
 
 <Accordions type="multiple">
 

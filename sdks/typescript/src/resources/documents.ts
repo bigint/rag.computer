@@ -111,6 +111,7 @@ export class DocumentsResource {
     if (options?.order) params.order = options.order;
     if (options?.limit !== undefined) params.limit = String(options.limit);
     if (options?.offset !== undefined) params.offset = String(options.offset);
+    if (options?.cursor !== undefined) params.cursor = options.cursor;
     if (options?.include_total !== undefined) {
       params.include_total = options.include_total ? "true" : "false";
     }
@@ -123,13 +124,14 @@ export class DocumentsResource {
 
   async *listAll(
     collection: string,
-    options?: Omit<DocumentListOptions, "offset">,
+    options?: Omit<DocumentListOptions, "offset" | "cursor">,
   ): AsyncGenerator<Document> {
     const pageSize = options?.limit ?? 100;
     let offset = 0;
     while (true) {
       const page = await this.list(collection, {
         ...options,
+        cursor: undefined,
         limit: pageSize,
         offset,
       });

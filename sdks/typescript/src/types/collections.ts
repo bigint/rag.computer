@@ -29,12 +29,14 @@ export interface CollectionListOptions {
   name?: string;
   limit?: number;
   offset?: number;
+  cursor?: string;
   include_total?: boolean;
 }
 
 export interface CollectionListResponse {
   collections: Collection[];
   total: number | null;
+  next_cursor?: string | null;
 }
 
 export interface CollectionStatsResponse {

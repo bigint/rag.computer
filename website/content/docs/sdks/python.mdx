@@ -80,6 +80,29 @@ S3 sync jobs support `collection`, `source_id`, and `limit` filters. Running job
 
 For Cloudflare R2, set `endpoint_url` to the R2 S3 API endpoint and omit `region` or use `auto`.
 
+Collection and document list responses may include `next_cursor`. Pass a returned token to `list` with the same filters and page size; a null or missing token ends pagination. `include_total=True` requests the matching count; otherwise `total` is null. Cursor tokens are opaque. Document cursors require `sort="created_at"` and the same collection, filters and order. The existing `list_all` iterators continue to use offsets and do not accept a cursor.
+
+```python
+page = await client.collections.list(name="research", limit=20)
+if page.get("next_cursor"):
+    next_page = await client.collections.list(
+        name="research", limit=20, cursor=page["next_cursor"]
+    )
+
+page = await client.documents.list(
+    "docs", status="ready", sort="created_at", order="desc", limit=20
+)
+if page.get("next_cursor"):
+    next_page = await client.documents.list(
+        "docs",
+        status="ready",
+        sort="created_at",
+        order="desc",
+        limit=20,
+        cursor=page["next_cursor"],
+    )
+```
+
 ## Collections
 
 ```python

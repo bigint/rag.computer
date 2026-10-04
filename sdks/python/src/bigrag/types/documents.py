@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import Any, NotRequired, TypedDict
 
 
 class DocumentProgress(TypedDict):
@@ -34,6 +34,7 @@ class Document(TypedDict):
 class DocumentListResponse(TypedDict):
     documents: list[Document]
     total: int | None
+    next_cursor: NotRequired[str | None]
 
 
 class DocumentChunk(TypedDict):

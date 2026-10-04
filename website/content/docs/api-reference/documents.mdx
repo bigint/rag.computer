@@ -75,7 +75,7 @@ The `max_upload_size_mb` limit counts the file's bytes, using 1 MB = 1,048,576 b
 | `sort` | string | `created_at` | `created_at`, `updated_at`, `filename`, `file_size`, `chunk_count`, `status` |
 | `order` | string | `desc` | `asc` or `desc` |
 | `limit` | integer | `100` | 1–1,000 |
-| `offset` | integer | `0` | 0+ |
+| `offset` | integer | `0` | 0–10,000; ignored with a valid cursor |
 | `cursor` | string | — | Cursor returned as `next_cursor`; requires `sort=created_at` |
 | `include_total` | boolean | `false` | Include the matching document count |
 
@@ -100,10 +100,12 @@ The `max_upload_size_mb` limit counts the file's bytes, using 1 MB = 1,048,576 b
       "updated_at": "..."
     }
   ],
-  "total": 15,
+  "total": null,
   "next_cursor": null
 }
 ```
+
+Continue with `next_cursor` using the same collection, filters, `sort=created_at`, order and page size. A null token ends pagination; `total` is null unless `include_total=true`. Cursor requests retain normal collection-pin and tenant checks. Pagination is not a snapshot of concurrent changes.
 
 </Accordion>
 
