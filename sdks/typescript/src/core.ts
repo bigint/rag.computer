@@ -166,9 +166,14 @@ export class BigRAGCore implements RequestClient {
     } catch {
       errBody = {};
     }
-    const message =
-      errBody.detail ?? errBody.error?.message ?? errBody.message ?? response.statusText;
-    const code = errBody.error?.code;
+    if (typeof errBody !== "object" || errBody === null || Array.isArray(errBody)) {
+      errBody = {};
+    }
+    const error = errBody.error;
+    const errorBody =
+      typeof error === "object" && error !== null && !Array.isArray(error) ? error : {};
+    const message = errBody.detail ?? errorBody.message ?? errBody.message ?? response.statusText;
+    const code = errorBody.code;
     throw errorForStatus(response.status, message, code);
   }
 

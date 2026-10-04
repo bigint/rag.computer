@@ -241,14 +241,20 @@ class BigRAGCore:
         except Exception:
             body = {}
 
+        if not isinstance(body, dict):
+            body = {}
+        error = body.get("error")
+        if not isinstance(error, dict):
+            error = {}
+
         message = (
             body.get("detail")
-            or (body.get("error", {}) or {}).get("message")
+            or error.get("message")
             or body.get("message")
             or response.reason_phrase
             or "Unknown error"
         )
-        code = (body.get("error", {}) or {}).get("code")
+        code = error.get("code")
         raise error_for_status(response.status_code, message, code)
 
     async def aclose(self) -> None:

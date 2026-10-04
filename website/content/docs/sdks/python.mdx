@@ -417,6 +417,10 @@ analytics = await client.collections.analytics("docs")
 
 ## Error Handling
 
+The SDK checks the shape of the JSON error envelope and its nested `error` container. `null`, arrays, and other non-object containers are ignored. The HTTP-status-to-error-class mapping is unchanged.
+
+Messages use the first truthy value from `detail`, `error.message`, `message`, or the HTTP reason phrase, falling back to `"Unknown error"`. `code` comes only from `error.code`. These container checks do not normalize message or code values: for example, a nonempty FastAPI validation `detail` array remains the exception's message argument.
+
 ```python
 from bigrag import (
     BigRAGError,        # base for all errors

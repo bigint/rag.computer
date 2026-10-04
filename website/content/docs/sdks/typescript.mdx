@@ -395,6 +395,10 @@ client.collections.analytics(collection) // GET /v1/collections/{name}/analytics
 
 ## Error Handling
 
+The SDK checks the shape of the JSON error envelope and its nested `error` container. `null`, arrays, and other non-object containers are ignored. The HTTP-status-to-error-class mapping is unchanged.
+
+Messages use the first non-nullish value from `detail`, `error.message`, `message`, or the HTTP status text; an empty status text stays empty. `code` comes only from `error.code`. These container checks do not normalize message or code values: structured `detail` values, including FastAPI validation arrays, retain JavaScript's existing `Error` message coercion.
+
 ```typescript
 import {
   BigRAG,
